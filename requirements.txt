@@ -1,0 +1,24 @@
+# Core
+numpy
+pandas
+scikit-learn
+scipy
+joblib
+
+# Radiomics (only needed for feature extraction from images; skipped in CACHE_MODE)
+SimpleITK
+pyradiomics
+mrmr-selection
+opencv-python-headless
+
+# LLM / fine-tuning
+torch
+transformers
+accelerate
+peft
+datasets
+bitsandbytes>=0.46.1   # >=0.46.1 required by recent transformers for 4-bit on Colab
+
+# Notebook / plotting
+matplotlib
+ipython
