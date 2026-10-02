@@ -10,6 +10,7 @@ The conformal triage layer from the design note ("Conformal Triage for Thyroid N
 - The limit is the base model, not the method. The model is **consistently wrong** on about 20% of its most confident benign calls, and no consistency-based signal can flag such errors.
 - **Perturbation-based votes do not beat the softmax probability** as an uncertainty signal for this model.
 - **Calibration and official test are not exchangeable** (classifier two-sample AUC 0.63, p = 0.002), so test-split rates describe behaviour under shift rather than testing the guarantee.
+- **More features did not improve performance on the official test set** (classical models). Going from 8 to all 67 radiomics features raised validation AUC from about 0.69 to 0.74–0.79, but test AUC stayed at 0.65–0.70.
 
 ## 2. Setup
 
@@ -164,7 +165,7 @@ AUC with the model trained on train, as validation / official test:
 | shape2D only (9) | 0.707 / 0.654 | 0.743 / 0.661 | 0.736 / 0.646 |
 | all 67 | 0.740 / 0.699 | 0.755 / 0.663 | 0.786 / 0.654 |
 
-More features help within the trainval distribution but barely on the official test split, consistent with Section 5. This has not yet been tested with the LLM.
+More features did not improve performance on the official test set: validation AUC rises from about 0.69 to 0.74–0.79, but test AUC stays at 0.65–0.70 (0.65–0.67 with 8 features). The gain appears only within the trainval distribution, consistent with Section 5. This has not yet been tested with the LLM.
 
 ## 7. Limitations
 
@@ -189,7 +190,7 @@ More features help within the trainval distribution but barely on the official t
    - More features with the current 1.5B model: runs on a free T4, but needs retraining and a longer `MAX_LENGTH`.
    - A 7B model (Qwen2.5-7B, or LLaMA2-7B as in Ra et al.): fits a T4 with 4-bit QLoRA, but takes several hours per run, so Kaggle, Colab Pro or a university GPU would be needed.
 
-   Section 6 suggests features are the more promising lever.
+   On validation, features look like the more promising lever (Section 6), but that gain has not yet carried over to the official test set.
 
 ## 9. Reproducibility
 
