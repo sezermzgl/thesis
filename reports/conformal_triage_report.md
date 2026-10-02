@@ -1,6 +1,6 @@
 # Conformal Triage for Thyroid Nodules: Full Report
 
-*Status as of 2026-10-02. Branch `conformal-triage`. Run records: [`runs/2026-10-02_part_d_m10`](../runs/2026-10-02_part_d_m10/RESULTS.md) (run 1) and [`runs/2026-10-02_part_d_jitter`](../runs/2026-10-02_part_d_jitter/RESULTS.md) (run 2).*
+*Status as of 2026-10-02. Run records: [`runs/2026-10-02_part_d_m10`](../runs/2026-10-02_part_d_m10/RESULTS.md) (run 1) and [`runs/2026-10-02_part_d_jitter`](../runs/2026-10-02_part_d_jitter/RESULTS.md) (run 2).*
 
 ## 1. Summary
 
