@@ -18,6 +18,8 @@ compared against RF / SVM / LR baselines.
 ├── .gitignore
 ├── conformal_triage/                # Part D: perturbed prompts, votes, LTT, split CP, reports
 ├── tests/                           # unit tests for conformal_triage (python -m unittest discover tests)
+├── runs/                            # Part D run records (results + per-query probabilities)
+├── tn3k_gt_radiomics/classification/lora_adapter_seed42_qwen15b/   # fine-tuned adapter (B5 skips training)
 └── features/                        # cached radiomics tables (committed so extraction is skipped)
     ├── radiomics_train.csv
     ├── radiomics_validation.csv
@@ -79,15 +81,15 @@ or `"local"`, and run all. Extraction runs and produces the same `features/` CSV
   attention), class-weighted cross-entropy, evaluated on the internal test set.
 - **Part C – Baselines:** RF / SVM / LR on the same 8 standardized features, reported alongside
   the LLM.
-- **Part D – Conformal triage:** each validation/calibration/test nodule is queried `N_QUERIES`
-  times with perturbed prompts (shuffled feature order, one feature dropped, paraphrased
-  template; query 0 is the training prompt). The vote count `v` drives a three-way rule:
-  `v <= t` auto-benign, `v >= u` auto-malignant, otherwise refer. `t` and `u` are chosen on the
-  calibration split with Learn-then-Test so that the share of cancers among auto-benign nodules
-  and the share of benign nodules among auto-malignant nodules are bounded with high
-  probability. The validation split is used only for the feasibility check; the test split only
-  reports the locked rule. Classic split CP (marginal and Mondrian) and a softmax-only baseline
-  are computed on the same data for comparison.
+- **Part D – Conformal triage:** each validation/calibration/test nodule is queried several
+  times in the training prompt format: the base prompt, Gaussian noise added to the standardized
+  values (jitter, several noise levels; one is picked on validation), and one prompt per removed
+  feature (drop). The vote count `v` drives a three-way rule: `v <= t` auto-benign, `v >= u`
+  auto-malignant, otherwise refer. `t` and `u` are chosen on the calibration split with
+  Learn-then-Test so that the share of cancers among auto-benign nodules and the share of benign
+  nodules among auto-malignant nodules are bounded with high probability. Part D also runs a
+  calibration-vs-test exchangeability check, classic split CP (marginal and Mondrian), a
+  softmax-only baseline, and zips its outputs for download (D9).
 
 ## Current results (internal test set, n = 614)
 
@@ -110,11 +112,17 @@ elongation, maximum diameter, high/large gray-level zone emphasis, cluster shade
   **not directly comparable**. To scale toward the paper: set `MODEL_NAME` to a 7B model, raise
   `NUM_EPOCHS`, and use a larger GPU.
 - Part D assumes calibration and test nodules are exchangeable. Calibration comes from the official
-  trainval split and test from the official test split (malignant share 0.338 vs 0.384), so this
-  assumption still has to be checked.
-- Part D adds `N_QUERIES` forward passes per nodule on three splits (about 15k for m = 10). The
-  per-query probabilities are cached in `tn3k_gt_radiomics/conformal/perturbed_probs_*.csv`, so
-  the analysis cells can be re-run without the GPU.
+  trainval split and test from the official test split, and in the first run a two-sample test
+  separated them clearly (AUC 0.62, p < 0.01; test nodules are larger). Test-split rates
+  therefore describe behaviour under shift rather than testing the guarantee. See
+  `runs/2026-10-02_part_d_m10/RESULTS.md`.
+- The committed adapter (trained 2026-10-02, test AUC 0.672) is loaded automatically in
+  `repo` mode, so B5 skips training. It was trained before the gradient-accumulation fix in B5.
+  Set `USE_CACHE = False` to retrain with the fixed loss.
+- Part D adds 36 forward passes per nodule on three splits (about 53k, roughly 25 minutes on a T4).
+  The per-query probabilities are cached in `tn3k_gt_radiomics/conformal/perturbed_probs_*.csv`,
+  so the analysis cells can be re-run without the GPU. In Colab, `/content` is wiped when the
+  session ends, so download the zip from D9.
 
 ## Reproducibility
 
