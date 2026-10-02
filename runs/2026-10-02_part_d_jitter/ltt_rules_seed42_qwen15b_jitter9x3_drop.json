@@ -1,0 +1,22 @@
+{
+  "LTT jitter votes": {
+    "t": null,
+    "u": null
+  },
+  "LTT drop votes": {
+    "t": null,
+    "u": null
+  },
+  "LTT softmax": {
+    "t": null,
+    "u": null
+  },
+  "alpha_benign": 0.05,
+  "alpha_malignant": 0.2,
+  "delta": 0.05,
+  "jitter_sd": 0.2,
+  "n_votes": {
+    "jitter": 10,
+    "drop": 9
+  }
+}
