@@ -27,16 +27,29 @@ def predict_malignant_proba(
     return np.concatenate(out) if out else np.empty(0)
 
 
-def probability_matrix(long_table: pd.DataFrame, key_column: str = "sample_id"):
-    """Pivot the long (nodule, query, prob) table into an (n, m) matrix and a label vector.
+def signal_matrix(
+    long_table: pd.DataFrame,
+    kind: str,
+    noise_sd: float | None = None,
+    key_column: str = "sample_id",
+):
+    """(n, q) matrix of P(malignant): column 0 is the base prompt, then the `kind` queries.
 
+    kind="jitter" needs `noise_sd` to pick one noise level; kind="drop" uses every drop query.
     Rows follow the first-appearance order of `key_column` in the long table.
     """
-    keys = long_table[key_column].drop_duplicates().tolist()
-    wide = long_table.pivot(index=key_column, columns="query", values="prob_malignant").loc[keys]
+    sel = long_table["kind"] == kind
+    if kind == "jitter":
+        sel &= np.isclose(long_table["noise_sd"], noise_sd)
+    rows = long_table[(long_table["kind"] == "base") | sel]
+
+    keys = rows[key_column].drop_duplicates().tolist()
+    wide = rows.pivot(index=key_column, columns="query", values="prob_malignant").loc[keys]
     if wide.isna().any().any():
         raise ValueError("Some (nodule, query) pairs have no probability.")
-    labels = long_table.drop_duplicates(key_column).set_index(key_column).loc[keys, "label"]
+    if wide.shape[1] < 2:
+        raise ValueError(f"No '{kind}' queries found (noise_sd={noise_sd}).")
+    labels = rows.drop_duplicates(key_column).set_index(key_column).loc[keys, "label"]
     return wide.to_numpy(dtype=np.float64), labels.to_numpy(dtype=int), keys
 
 

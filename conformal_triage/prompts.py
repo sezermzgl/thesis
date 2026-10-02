@@ -1,9 +1,16 @@
 """Perturbed feature prompts for the conformal triage layer.
 
-Each nodule is shown to the fine-tuned model several times. Query 0 is always the exact prompt
-used in training (Part A, A11); the remaining queries shuffle the feature order, optionally drop
-one feature, and pick a paraphrased sentence template. Every variant is recorded so that the
-votes can later be traced back to the perturbation that produced them.
+Every prompt keeps the training format (same template, same feature order), because the
+fine-tuned model was trained on that single format and moves far off-distribution otherwise:
+in the first run, paraphrased templates were never classified as malignant and shuffling the
+feature order alone flipped 29% of the answers.
+
+Per nodule the long table holds three kinds of queries:
+    base    the exact training prompt (one per nodule)
+    jitter  Gaussian noise N(0, sd^2) added to every standardized value; one block of
+            `n_jitter` queries per noise level. Base + one jitter block = one vote signal.
+    drop    one feature removed, values unchanged; one query per feature. Used for the
+            feature-dependence analysis and as a second vote signal (base + all drops).
 """
 
 import re
@@ -12,24 +19,9 @@ import zlib
 import numpy as np
 import pandas as pd
 
-# Template 0 reproduces build_prompt() from the notebook word for word.
-TEMPLATES = [
-    {
-        "intro": ("Classify this thyroid nodule as benign or malignant based on "
-                  "the following standardized radiomic features."),
-        "sentence": "The '{name}' feature is measured at {value:.3f}.",
-    },
-    {
-        "intro": ("Decide whether this thyroid nodule is benign or malignant using "
-                  "these standardized radiomic measurements."),
-        "sentence": "'{name}': {value:.3f}.",
-    },
-    {
-        "intro": ("Based on the standardized radiomic features below, classify the "
-                  "thyroid nodule as benign or malignant."),
-        "sentence": "The standardized value of '{name}' is {value:.3f}.",
-    },
-]
+INTRO = ("Classify this thyroid nodule as benign or malignant based on "
+         "the following standardized radiomic features.")
+SENTENCE = "The '{name}' feature is measured at {value:.3f}."
 
 
 def readable_feature_name(raw_name: str) -> str:
@@ -37,22 +29,14 @@ def readable_feature_name(raw_name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", " ", name).strip()
 
 
-def render_prompt(
-    feature_names: list[str],
-    values: np.ndarray,
-    order: list[int] | None = None,
-    dropped: int | None = None,
-    template: int = 0,
-) -> str:
-    """Render one prompt. `order` and `dropped` index into `feature_names`."""
-    spec = TEMPLATES[template]
-    order = list(range(len(feature_names))) if order is None else list(order)
+def render_prompt(feature_names: list[str], values: np.ndarray, dropped: int | None = None) -> str:
+    """Training-format prompt (identical to build_prompt in A11), optionally without one feature."""
     sentences = [
-        spec["sentence"].format(name=readable_feature_name(feature_names[i]), value=values[i])
-        for i in order
+        SENTENCE.format(name=readable_feature_name(name), value=value)
+        for i, (name, value) in enumerate(zip(feature_names, values))
         if i != dropped
     ]
-    return " ".join([spec["intro"], *sentences])
+    return " ".join([INTRO, *sentences])
 
 
 def sample_seed(base_seed: int, sample_key: str) -> int:
@@ -63,33 +47,35 @@ def sample_seed(base_seed: int, sample_key: str) -> int:
 def make_variants(
     feature_names: list[str],
     values: np.ndarray,
-    n_queries: int,
     rng: np.random.Generator,
-    drop_prob: float = 0.5,
+    n_jitter: int,
+    jitter_sds: list[float],
+    include_drops: bool = True,
 ) -> list[dict]:
-    """Query 0 is the training prompt; queries 1..n_queries-1 are random perturbations."""
-    n_features = len(feature_names)
-    variants = [{"query": 0, "template": 0, "dropped": None,
-                 "order": list(range(n_features))}]
+    values = np.asarray(values, dtype=np.float64)
+    variants = [{"kind": "base", "noise_sd": 0.0, "dropped": None, "values": values}]
+    for sd in jitter_sds:
+        for _ in range(n_jitter):
+            variants.append({"kind": "jitter", "noise_sd": float(sd), "dropped": None,
+                             "values": values + rng.normal(0.0, sd, size=values.shape)})
+    if include_drops:
+        for j in range(len(feature_names)):
+            variants.append({"kind": "drop", "noise_sd": 0.0, "dropped": j, "values": values})
 
-    for q in range(1, n_queries):
-        order = rng.permutation(n_features).tolist()
-        dropped = int(rng.integers(n_features)) if rng.random() < drop_prob else None
-        template = int(rng.integers(len(TEMPLATES)))
-        variants.append({"query": q, "template": template, "dropped": dropped, "order": order})
-
-    for v in variants:
-        v["prompt"] = render_prompt(feature_names, values, v["order"], v["dropped"], v["template"])
+    for q, v in enumerate(variants):
+        v["query"] = q
+        v["prompt"] = render_prompt(feature_names, v["values"], v["dropped"])
     return variants
 
 
 def build_perturbed_table(
     table: pd.DataFrame,
     feature_names: list[str],
-    n_queries: int,
+    n_jitter: int,
+    jitter_sds: list[float],
     seed: int,
     key_column: str = "sample_id",
-    drop_prob: float = 0.5,
+    include_drops: bool = True,
 ) -> pd.DataFrame:
     """Long table: one row per (nodule, query) with the prompt and the perturbation used."""
     rows = []
@@ -98,14 +84,14 @@ def build_perturbed_table(
     for i, (_, row) in enumerate(table.iterrows()):
         key = str(row[key_column])
         rng = np.random.default_rng(sample_seed(seed, key))
-        for v in make_variants(feature_names, values[i], n_queries, rng, drop_prob):
+        for v in make_variants(feature_names, values[i], rng, n_jitter, jitter_sds, include_drops):
             rows.append({
                 key_column: key,
                 "label": int(row["label"]),
                 "query": v["query"],
-                "template": v["template"],
+                "kind": v["kind"],
+                "noise_sd": v["noise_sd"],
                 "dropped_feature": None if v["dropped"] is None else feature_names[v["dropped"]],
-                "order": ",".join(map(str, v["order"])),
                 "prompt": v["prompt"],
             })
 

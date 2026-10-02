@@ -6,6 +6,7 @@ Run from the repo root:  python -m unittest discover tests
 import unittest
 
 import numpy as np
+import pandas as pd
 
 import conformal_triage as ct
 
@@ -113,30 +114,86 @@ class TestPrompts(unittest.TestCase):
              "original_glcm_ClusterShade"]
     values = np.array([0.5, -1.25, 2.0])
 
-    def test_query0_matches_training_prompt(self):
+    def variants(self):
+        return ct.make_variants(self.names, self.values, np.random.default_rng(0),
+                                n_jitter=4, jitter_sds=[0.1, 0.2])
+
+    def test_base_matches_training_prompt(self):
         expected = ("Classify this thyroid nodule as benign or malignant based on the following "
                     "standardized radiomic features. The 'Major Axis Length' feature is measured "
                     "at 0.500. The 'Range' feature is measured at -1.250. The 'Cluster Shade' "
                     "feature is measured at 2.000.")
-        variants = ct.make_variants(self.names, self.values, 5, np.random.default_rng(0))
-        self.assertEqual(variants[0]["prompt"], expected)
-        self.assertEqual(len(variants), 5)
+        self.assertEqual(self.variants()[0]["prompt"], expected)
 
-    def test_dropped_feature_is_absent(self):
-        text = ct.render_prompt(self.names, self.values, dropped=1, template=1)
-        self.assertNotIn("Range", text)
-        self.assertIn("'Cluster Shade': 2.000.", text)
+    def test_layout(self):
+        v = self.variants()
+        self.assertEqual([x["kind"] for x in v], ["base"] + ["jitter"] * 8 + ["drop"] * 3)
+        self.assertEqual([x["query"] for x in v], list(range(12)))
+        self.assertEqual([x["noise_sd"] for x in v[1:9]], [0.1] * 4 + [0.2] * 4)
+
+    def test_jitter_keeps_format(self):
+        for x in self.variants()[1:9]:
+            self.assertTrue(x["prompt"].startswith("Classify this thyroid nodule"))
+            self.assertEqual(x["prompt"].count("feature is measured at"), 3)
+            self.assertNotEqual(x["prompt"], self.variants()[0]["prompt"])
+
+    def test_drop_removes_only_that_feature(self):
+        drops = self.variants()[9:]
+        self.assertNotIn("Range", drops[1]["prompt"])
+        self.assertEqual(drops[1]["prompt"],
+                         ct.render_prompt(self.names, self.values, dropped=1))
+        self.assertIn("'Cluster Shade' feature is measured at 2.000.", drops[1]["prompt"])
 
     def test_perturbed_table_is_deterministic_per_nodule(self):
-        import pandas as pd
         table = pd.DataFrame({"sample_id": ["a", "b"], "label": [0, 1],
                               **{n: [0.1, 0.2] for n in self.names}})
-        long1 = ct.build_perturbed_table(table, self.names, n_queries=4, seed=42)
-        long2 = ct.build_perturbed_table(table.iloc[::-1], self.names, n_queries=4, seed=42)
+        kw = dict(n_jitter=3, jitter_sds=[0.1], seed=42)
+        long1 = ct.build_perturbed_table(table, self.names, **kw)
+        long2 = ct.build_perturbed_table(table.iloc[::-1], self.names, **kw)
         key = ["sample_id", "query"]
         pd.testing.assert_frame_equal(long1.sort_values(key).reset_index(drop=True),
                                       long2.sort_values(key).reset_index(drop=True))
-        self.assertEqual(len(long1), 8)
+        self.assertEqual(len(long1), 2 * (1 + 3 + 3))
+
+
+class TestSignals(unittest.TestCase):
+    def setUp(self):
+        names = ["f_A", "f_B"]
+        table = pd.DataFrame({"sample_id": ["a", "b", "c"], "label": [0, 1, 1],
+                              "f_A": [0.0, 1.0, 2.0], "f_B": [0.0, -1.0, 1.0]})
+        self.long = ct.build_perturbed_table(table, names, n_jitter=2, jitter_sds=[0.1, 0.3],
+                                             seed=0)
+        self.long["prob_malignant"] = np.linspace(0.05, 0.95, len(self.long))
+
+    def test_signal_matrix_shapes(self):
+        p, y, keys = ct.signal_matrix(self.long, "jitter", noise_sd=0.3)
+        self.assertEqual(p.shape, (3, 3))
+        self.assertEqual(keys, ["a", "b", "c"])
+        self.assertEqual(y.tolist(), [0, 1, 1])
+        base = self.long.query("kind == 'base'")["prob_malignant"].to_numpy()
+        np.testing.assert_allclose(p[:, 0], base)
+        p_drop, _, _ = ct.signal_matrix(self.long, "drop")
+        self.assertEqual(p_drop.shape, (3, 3))
+
+    def test_missing_level_raises(self):
+        with self.assertRaises(ValueError):
+            ct.signal_matrix(self.long, "jitter", noise_sd=0.7)
+
+    def test_reports_run(self):
+        rep = ct.perturbation_report(self.long)
+        self.assertEqual(rep.index.tolist(),
+                         [("base", 0.0), ("drop", 0.0), ("jitter", 0.1), ("jitter", 0.3)])
+        dep = ct.feature_dependence(self.long)
+        self.assertEqual(sorted(dep.index), ["f_A", "f_B"])
+        self.assertTrue((dep["n"] == 3).all())
+
+    def test_two_sample_test(self):
+        rng = np.random.default_rng(0)
+        same = ct.two_sample_test(rng.normal(size=(200, 3)), rng.normal(size=(200, 3)), 200)
+        shifted = ct.two_sample_test(rng.normal(size=(200, 3)), rng.normal(1, 1, (200, 3)), 200)
+        self.assertGreater(same["p_value"], 0.01)
+        self.assertLess(shifted["p_value"], 0.01)
+        self.assertGreater(shifted["auc"], 0.7)
 
 
 if __name__ == "__main__":

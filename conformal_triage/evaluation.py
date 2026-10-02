@@ -41,17 +41,70 @@ def feasibility_report(probs: np.ndarray, y: np.ndarray, threshold: float = 0.5)
     })
 
 
+def _with_base(long_table: pd.DataFrame, threshold: float, key_column: str) -> pd.DataFrame:
+    base = long_table[long_table["kind"] == "base"].set_index(key_column)["prob_malignant"]
+    out = long_table[long_table["kind"] != "base"].copy()
+    out["base_prob"] = base.loc[out[key_column]].to_numpy()
+    out["flipped"] = (out["prob_malignant"] >= threshold) != (out["base_prob"] >= threshold)
+    return out
+
+
+def perturbation_report(long_table: pd.DataFrame, threshold: float = 0.5,
+                        key_column: str = "sample_id") -> pd.DataFrame:
+    """Per perturbation kind (and noise level): how far the answers move from the base prompt.
+
+    A useful perturbation keeps the discrimination (auc) close to the base prompt's and does
+    not push every answer to one class (share_pred_malignant).
+    """
+    base = long_table[long_table["kind"] == "base"]
+    rows = {("base", 0.0): {
+        "n": len(base), "flip_rate": 0.0,
+        "share_pred_malignant": (base["prob_malignant"] >= threshold).mean(),
+        "mean_shift": 0.0, "auc": _safe_auc(base["label"], base["prob_malignant"])}}
+    for (kind, sd), g in _with_base(long_table, threshold, key_column).groupby(["kind", "noise_sd"]):
+        rows[(kind, sd)] = {
+            "n": len(g), "flip_rate": g["flipped"].mean(),
+            "share_pred_malignant": (g["prob_malignant"] >= threshold).mean(),
+            "mean_shift": (g["prob_malignant"] - g["base_prob"]).mean(),
+            "auc": _safe_auc(g["label"], g["prob_malignant"])}
+    out = pd.DataFrame(rows).T
+    out.index.names = ["kind", "noise_sd"]
+    return out
+
+
 def feature_dependence(long_table: pd.DataFrame, threshold: float = 0.5,
                        key_column: str = "sample_id") -> pd.DataFrame:
-    """How often dropping each feature flips the answer relative to the training prompt."""
-    base = (long_table[long_table["query"] == 0]
-            .set_index(key_column)["prob_malignant"] >= threshold)
-    dropped = long_table[long_table["dropped_feature"].notna()].copy()
-    dropped["flipped"] = (dropped["prob_malignant"] >= threshold).to_numpy() != \
-        base.loc[dropped[key_column]].to_numpy()
-    return (dropped.groupby("dropped_feature")["flipped"]
-            .agg(n_queries="size", flip_rate="mean")
+    """How often removing each feature (and nothing else) flips the base-prompt answer."""
+    drops = _with_base(long_table, threshold, key_column)
+    drops = drops[drops["kind"] == "drop"]
+    drops["abs_shift"] = (drops["prob_malignant"] - drops["base_prob"]).abs()
+    return (drops.groupby("dropped_feature")
+            .agg(n=("flipped", "size"), flip_rate=("flipped", "mean"),
+                 mean_abs_shift=("abs_shift", "mean"))
             .sort_values("flip_rate", ascending=False))
+
+
+def two_sample_test(X_a: np.ndarray, X_b: np.ndarray, n_permutations: int = 500,
+                    seed: int = 0) -> pd.Series:
+    """Classifier two-sample test: can a model tell sample a from sample b?
+
+    Cross-validated AUC of a logistic regression separating the two samples, with a
+    permutation p-value. AUC near 0.5 is consistent with exchangeability; a small p-value
+    means the two samples come from different distributions.
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import StratifiedKFold, cross_val_predict
+
+    X = np.vstack([X_a, X_b])
+    t = np.r_[np.zeros(len(X_a), int), np.ones(len(X_b), int)]
+    cv = StratifiedKFold(5, shuffle=True, random_state=seed)
+    scores = cross_val_predict(LogisticRegression(max_iter=1000), X, t, cv=cv,
+                               method="predict_proba")[:, 1]
+    auc = roc_auc_score(t, scores)
+    rng = np.random.default_rng(seed)
+    null = np.array([roc_auc_score(rng.permutation(t), scores) for _ in range(n_permutations)])
+    return pd.Series({"n_a": len(X_a), "n_b": len(X_b), "auc": auc,
+                      "p_value": (1 + (null >= auc).sum()) / (1 + n_permutations)})
 
 
 def triage_report(decisions: np.ndarray, y: np.ndarray) -> pd.Series:
