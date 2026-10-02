@@ -16,6 +16,8 @@ compared against RF / SVM / LR baselines.
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
+├── conformal_triage/                # Part D: perturbed prompts, votes, LTT, split CP, reports
+├── tests/                           # unit tests for conformal_triage (python -m unittest discover tests)
 └── features/                        # cached radiomics tables (committed so extraction is skipped)
     ├── radiomics_train.csv
     ├── radiomics_validation.csv
@@ -52,7 +54,8 @@ mRMR → prompts → LLM fine-tuning → evaluation. You should see a line like
 ### Option B — Colab via git clone
 
 1. In a Colab cell: `!git clone https://github.com/sezermzgl/thesis.git then `%cd <repo>`.
-2. Open the notebook, set `DATA_SOURCE = "repo"`.
+2. Open the notebook, set `DATA_SOURCE = "repo"`. Part D imports `conformal_triage/` from the
+   cloned repo; with Option A, upload that folder to `/content/` as well.
 3. Run install → **Restart session** → **Run all**.
 
 Because `features/` is committed at the repo root, CACHE_MODE triggers automatically.
@@ -76,6 +79,15 @@ or `"local"`, and run all. Extraction runs and produces the same `features/` CSV
   attention), class-weighted cross-entropy, evaluated on the internal test set.
 - **Part C – Baselines:** RF / SVM / LR on the same 8 standardized features, reported alongside
   the LLM.
+- **Part D – Conformal triage:** each validation/calibration/test nodule is queried `N_QUERIES`
+  times with perturbed prompts (shuffled feature order, one feature dropped, paraphrased
+  template; query 0 is the training prompt). The vote count `v` drives a three-way rule:
+  `v <= t` auto-benign, `v >= u` auto-malignant, otherwise refer. `t` and `u` are chosen on the
+  calibration split with Learn-then-Test so that the share of cancers among auto-benign nodules
+  and the share of benign nodules among auto-malignant nodules are bounded with high
+  probability. The validation split is used only for the feasibility check; the test split only
+  reports the locked rule. Classic split CP (marginal and Mondrian) and a softmax-only baseline
+  are computed on the same data for comparison.
 
 ## Current results (internal test set, n = 614)
 
@@ -97,8 +109,12 @@ elongation, maximum diameter, high/large gray-level zone emphasis, cluster shade
   (Qwen2.5-1.5B) with 4-bit QLoRA and few epochs** to fit a free Colab T4, so absolute scores are
   **not directly comparable**. To scale toward the paper: set `MODEL_NAME` to a 7B model, raise
   `NUM_EPOCHS`, and use a larger GPU.
-- The `calibration` split is produced and reserved for a future conformal-prediction step
-  (out of scope here).
+- Part D assumes calibration and test nodules are exchangeable. Calibration comes from the official
+  trainval split and test from the official test split (malignant share 0.338 vs 0.384), so this
+  assumption still has to be checked.
+- Part D adds `N_QUERIES` forward passes per nodule on three splits (about 15k for m = 10). The
+  per-query probabilities are cached in `tn3k_gt_radiomics/conformal/perturbed_probs_*.csv`, so
+  the analysis cells can be re-run without the GPU.
 
 ## Reproducibility
 
