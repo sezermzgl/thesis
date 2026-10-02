@@ -1,0 +1,14 @@
+{
+  "votes": {
+    "t": null,
+    "u": null
+  },
+  "softmax": {
+    "t": null,
+    "u": null
+  },
+  "alpha_benign": 0.05,
+  "alpha_malignant": 0.2,
+  "delta": 0.05,
+  "n_queries": 10
+}
