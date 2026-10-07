@@ -1,6 +1,6 @@
 # Conformal Triage for Thyroid Nodules: Full Report
 
-*Status as of 2026-10-02. Run records: [`runs/2026-10-02_part_d_m10`](../runs/2026-10-02_part_d_m10/RESULTS.md) (run 1) and [`runs/2026-10-02_part_d_jitter`](../runs/2026-10-02_part_d_jitter/RESULTS.md) (run 2).*
+*Status as of 2026-10-02; Section 10 added 2026-10-07. Run records: [`runs/2026-10-02_part_d_m10`](../runs/2026-10-02_part_d_m10/RESULTS.md) (run 1) and [`runs/2026-10-02_part_d_jitter`](../runs/2026-10-02_part_d_jitter/RESULTS.md) (run 2).*
 
 ## 1. Summary
 
@@ -169,7 +169,7 @@ More features did not improve performance on the official test set: validation A
 
 ## 7. Limitations
 
-- **Weak base model.** AUC is 0.70 on validation and 0.67 on test, using a 1.5B model with 4-bit QLoRA, 5 epochs and a free T4. Ra et al. used LLaMA2-7B for 500 epochs.
+- **Weak base model, which drives the main negative results.** AUC is 0.70 on validation and 0.67 on test, using a 1.5B model with 4-bit QLoRA, 5 epochs and a free T4. Ra et al. used LLaMA2-7B for 500 epochs. The errors that block LTT come from the base model itself, not from the perturbations. The base prompt alone is wrong on 35% of calibration nodules, and 56% of those errors are repeated in all 10 queries, so no vote threshold can flag them (Section 10.1). The current limitations of the triage layer are therefore limitations of the model it sits on.
 - **Numbers as text.** The model reads standardized values as tokens. Run 1 showed it depends on feature position more than on content.
 - **Only 8 features** (Section 6).
 - **Noise level not grounded in real measurement variability.** A principled alternative is to perturb the segmentation masks and re-extract the features, which needs the images.
@@ -198,3 +198,57 @@ More features did not improve performance on the official test set: validation A
 - The adapter used in both runs is at `tn3k_gt_radiomics/classification/lora_adapter_seed42_qwen15b/` and is loaded automatically in `repo` mode, so B5 skips training.
 - Per-query probabilities for both runs are in `runs/`, so every table above can be recomputed without a GPU.
 - Seed 42 throughout. Each nodule's perturbation noise is seeded by its `sample_id`.
+
+## 10. Addendum (2026-10-07): clarifications and an exploratory analysis
+
+This section was added after the report was first shared. Sections 10.1–10.2 restate existing results more explicitly. Section 10.3 is an **exploratory analysis that was not planned in advance**. All numbers are computed from the run 2 per-query probabilities in `runs/2026-10-02_part_d_jitter/`; no new model queries were made.
+
+### 10.1 The errors come from the base model; perturbations neither create nor reveal them
+
+v = 0 means that all 10 queries, including the unperturbed base prompt, answered benign. So the 32 cancers in the calibration v = 0 group were already misclassified by the base prompt alone. The perturbations did not cause these errors. They also did not expose them: the model gives the same wrong answer under noise and under feature removal.
+
+| split | base accuracy | base errors | unanimous nodules (v = 0 or 10) | wrong among unanimous | share of base errors that are unanimous |
+|---|---|---|---|---|---|
+| validation | 0.648 | 152 | 301 (69.7%) | 95 (31.6%) | 62.5% |
+| calibration | 0.648 | 152 | 281 (65.0%) | 85 (30.2%) | 55.9% |
+| test | 0.658 | 210 | 450 (73.3%) | 145 (32.2%) | 69.0% |
+
+The design assumed the model would be unstable on the nodules it gets wrong, so that their votes would split and they would be referred. Instead, 56–69% of the base model's errors are unanimous. Consistency here measures how stable the model's answer is, not whether it is correct.
+
+### 10.2 Separating correct from incorrect predictions: absolute values
+
+Section 4.2 reports differences. The underlying AUCs for separating correct from incorrect base predictions are:
+
+| confidence measure | validation | calibration | test |
+|---|---|---|---|
+| softmax confidence (base prompt) | 0.602 | 0.629 | 0.577 |
+| jitter vote agreement (SD 0.2) | 0.560 | 0.579 | 0.533 |
+| drop vote agreement | 0.620 | 0.652 | 0.571 |
+
+All three are close to 0.5–0.65, so none separates the model's errors well.
+
+### 10.3 Exploratory: a different guarantee (miss rate) with the same model
+
+R1 bounds the share of cancers among auto-benign nodules. That is a demanding target with a 34% base rate: the auto-benign group must be at least 95% clean. A standard alternative is to bound the **miss rate**: the share of all cancers that are sent to auto-benign (false-negative-rate control, as in conformal risk control). This was tested with the same binomial LTT test, now with n = 146 calibration cancers. Thresholds were tested in increasing order, stopping at the first failure, with δ = 0.05.
+
+| score | target miss rate | threshold | calibration: auto-benign | test: auto-benign | test: cancers missed |
+|---|---|---|---|---|---|
+| softmax (base prompt) | ≤ 5% | P(malignant) ≤ 0.215 | 19 (4.4%) | 36 (5.9%) | 10 / 236 = 4.2% |
+| softmax (base prompt) | ≤ 10% | P(malignant) ≤ 0.283 | 65 (15.0%) | 156 (25.4%) | 36 / 236 = 15.3% |
+| jitter votes | ≤ 5% or ≤ 10% | none certified | – | – | – |
+
+- With the same small model, a miss-rate guarantee can be certified, but only for a small share of nodules (about 5% at the 5% level).
+- At the 10% level the guarantee is violated on the official test set (15.3% missed). Under the calibration → test shift (Section 5), many more test nodules fall below the threshold. This is a concrete example of why exchangeability matters.
+- Vote counts certify nothing even under this guarantee. They take only 11 values, and the cleanest group (v = 0) already holds 32 of the 146 calibration cancers (22%). Thresholds cannot be set more finely than that.
+- Caveats: the analysis is exploratory and post hoc. The candidate thresholds were taken from the calibration scores themselves; a valid version would fix them in advance, for example from the validation split. It uses a single run and a single dataset.
+
+The two guarantees answer different clinical questions. R1 is a per-patient statement ("if the system says benign, it is right with high probability"). The miss rate is a programme-level statement ("the system refers at least 95% of all cancers").
+
+### 10.4 Relation to the literature
+
+The method combines two established ideas, which places the results in context:
+
+- **Abstention with a guaranteed error rate.** This is selective classification with guaranteed risk (Geifman & El-Yaniv, "Selective Classification for Deep Neural Networks", 2017), generalised to several risks by Learn then Test (Angelopoulos et al., "Learn then Test: Calibrating Predictive Algorithms to Achieve Risk Control", 2021). The miss-rate variant corresponds to conformal risk control (Angelopoulos et al., "Conformal Risk Control", 2022).
+- **Uncertainty from repeated or perturbed queries.** This follows the consistency- and sampling-based uncertainty literature for LLMs: self-consistency (Wang et al.), semantic entropy (Kuhn et al., 2023), and conformal prediction from sampling frequencies (Su et al., "API Is Enough: Conformal Prediction for Large Language Models Without Logit-Access", 2024). The scoping review (Ashby et al., 2026, Finding 3) and Noorani et al. (2025) belong to the same line.
+
+A recurring point in this literature is that the guarantee is always valid, but its usefulness depends on how well the score ranks errors. This matches the results here. The contribution of this work is to apply the approach to a radiomics → LLM pipeline and to show that consistency signals that help in general NLP do not beat the softmax probability here, because the model's errors are stable.
