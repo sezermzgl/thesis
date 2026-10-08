@@ -19,6 +19,7 @@ Run from the repo root:
     python experiments/model_sweep.py --model Qwen/Qwen2.5-1.5B --n-features 16 --max-length 512
     python experiments/model_sweep.py --dry-run          # data + prompts only, no GPU
     python experiments/model_sweep.py --splits pooled_seed42 --model Qwen/Qwen2.5-1.5B
+    python experiments/model_sweep.py --splits pooled_seed42 --max-corr 0.95   # drop near-duplicates
 
 --splits official uses the notebook's splits (calibration from trainval, test = official test,
 which is not exchangeable with calibration). --splits pooled_seed42 uses splits/pooled_seed42.csv
@@ -44,7 +45,8 @@ from sklearn.preprocessing import StandardScaler
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
-from conformal_triage import calibrate_triage, predict_malignant_proba, render_prompt  # noqa: E402
+from conformal_triage import (calibrate_triage, drop_correlated, predict_malignant_proba,  # noqa: E402
+                              render_prompt)
 
 SPLITS = ["train", "validation", "calibration", "test"]
 META_COLUMNS = ["id", "sample_id", "image_name", "official_split", "analysis_split",
@@ -93,7 +95,8 @@ def append_summary(path: Path, row: dict) -> pd.DataFrame:
     return summary
 
 
-def prepare_data(n_features: int, seed: int, split_scheme: str = "official", features: str = "v1"):
+def prepare_data(n_features: int, seed: int, split_scheme: str = "official", features: str = "v1",
+                 max_corr: float | None = None):
     """Part A10-A11: train-only imputation, z-scoring and mRMR; training-format prompts."""
     from mrmr import mrmr_classif
 
@@ -112,9 +115,13 @@ def prepare_data(n_features: int, seed: int, split_scheme: str = "official", fea
     for s in SPLITS[1:]:
         scaled[s] = pd.DataFrame(scaler.transform(imputer.transform(raw[s][valid])), columns=valid)
 
+    candidates = valid
+    if max_corr is not None:   # drop near-duplicate features first (train only)
+        candidates, _ = drop_correlated(scaled["train"][valid], train["label"].astype(int), max_corr)
+
     np.random.seed(seed)
-    selected = list(mrmr_classif(X=scaled["train"], y=pd.Series(train["label"].astype(int)),
-                                 K=min(n_features, len(valid)), show_progress=False))
+    selected = list(mrmr_classif(X=scaled["train"][candidates], y=pd.Series(train["label"].astype(int)),
+                                 K=min(n_features, len(candidates)), show_progress=False))
 
     data = {}
     for s in SPLITS:
@@ -236,7 +243,9 @@ def train_model(args, data):
     trainer.train()
     trainer.save_model(str(args.run_dir / "adapter"))
     pd.DataFrame(trainer.state.log_history).to_csv(args.run_dir / "train_log.csv", index=False)
-    return trainer.model, tokenizer
+    # The Trainer wraps forward() in a bf16/fp16 autocast that stays on after training; under it
+    # the classifier logits are rounded (bf16: steps of 1/64) and many nodules tie. Remove it.
+    return trainer.accelerator.unwrap_model(trainer.model, keep_fp32_wrapper=False), tokenizer
 
 
 # ----------------------------------------------------------------------------- evaluation
@@ -291,6 +300,8 @@ def main():
                     help="'v1' or the path of a re-extracted table (radiomics_v2_all.csv)")
     ap.add_argument("--splits", default="official",
                     help="'official' or a file name in splits/, e.g. pooled_seed42")
+    ap.add_argument("--max-corr", type=float, default=None,
+                    help="drop near-duplicate features (|r| above this, train only) before mRMR, e.g. 0.95")
     ap.add_argument("--epochs", type=int, default=5)
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--batch", type=int, default=8, help="per-device train batch size")
@@ -305,7 +316,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="prepare data and prompts only")
     args = ap.parse_args()
 
-    data, selected = prepare_data(args.n_features, args.seed, args.splits, args.features)
+    data, selected = prepare_data(args.n_features, args.seed, args.splits, args.features, args.max_corr)
     print("Splits:", args.splits, {k: len(v) for k, v in data.items()})
     print(f"{len(selected)} features (mRMR on train): {selected}")
     print("Example prompt:", data["validation"]["prompt"].iloc[0])
@@ -317,6 +328,8 @@ def main():
         tag += f"_{args.splits}"
     if args.features != "v1":
         tag += f"_{Path(args.features).stem}"
+    if args.max_corr is not None:
+        tag += f"_corr{round(args.max_corr * 100)}"
     args.run_dir = Path(args.out) / tag
     args.run_dir.mkdir(parents=True, exist_ok=True)
     (args.run_dir / "config.json").write_text(json.dumps(
@@ -332,7 +345,8 @@ def main():
         data[s].assign(prob_malignant=probs[s]).drop(columns="prompt").to_csv(
             args.run_dir / f"probs_{s}.csv", index=False)
 
-    row = {"run": tag, "model": args.model, "feature_set": args.features, "split_scheme": args.splits,
+    row = {"run": tag, "model": args.model, "feature_set": args.features, "max_corr": args.max_corr,
+           "split_scheme": args.splits,
            "n_features": len(selected), "epochs": args.epochs,
            "gpu": args.gpu, "precision": args.precision_used,
            "minutes": round((time.time() - start) / 60, 1), **evaluate(probs, labels)}

@@ -14,6 +14,10 @@ To try another backbone or setting, change the Configuration cell, restart the s
 - `"zscore"`: states that the value is a z-score relative to the training nodules.
 - `"percentile"`: gives the percentile among the training nodules, computed on the train split only.
 
+`MAX_CORR` (default 0.95) removes near-duplicate features before mRMR, using the train split only. When two features have |r| above the threshold, the one less related to the label is dropped. mRMR alone let duplicates through: on v2 it selected both `PixelSurfaceRelative` and `MeshSurfaceRelative`, which are the same number in 2D. Set `MAX_CORR = None` to reproduce the earlier runs. Runs with the filter have `_corr95` in their name.
+
+P(malignant) is computed in full precision after training. Earlier bf16 runs on the L4 rounded the classifier logits to steps of 1/64 because the Trainer's autocast stayed on during prediction, so many nodules shared exactly the same score; for example, 524 calibration nodules had 195 distinct values. AUC barely changes, but threshold choices and tail counts are finer now.
+
 Open it in Colab:
 https://colab.research.google.com/github/sezermzgl/thesis/blob/main/experiments/tn3k_v2_pipeline_colab.ipynb
 

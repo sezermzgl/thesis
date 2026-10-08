@@ -5,6 +5,7 @@ from .evaluation import (feasibility_report, feature_dependence, perturbation_re
 from .ltt import (BENIGN, MALIGNANT, REFER, TriageRule, binomial_pvalue, calibrate_triage,
                   fixed_sequence_test, vote_candidates)
 from .prompts import build_perturbed_table, make_variants, render_prompt
+from .selection import drop_correlated
 from .split_cp import (calibrate_marginal, calibrate_mondrian, conformal_quantile,
                        prediction_sets, softmax_scores, vote_scores)
 from .votes import count_votes, predict_malignant_proba, signal_matrix, vote_table

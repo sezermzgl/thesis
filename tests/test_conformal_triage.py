@@ -225,5 +225,38 @@ class TestSignals(unittest.TestCase):
         self.assertGreater(shifted["auc"], 0.7)
 
 
+class TestSelection(unittest.TestCase):
+    def setUp(self):
+        rng = np.random.default_rng(0)
+        y = rng.integers(0, 2, 500)
+        size = y + rng.normal(0, 1, 500)
+        self.y = y
+        self.X = pd.DataFrame({
+            "area": size,
+            "area_copy": size + rng.normal(0, 0.01, 500),     # near-duplicate of area
+            "texture": rng.normal(0, 1, 500),
+            "weak_size": 0.5 * size + rng.normal(0, 1, 500),  # correlated, but not a copy
+        })
+
+    def test_drops_only_near_duplicates(self):
+        kept, dropped = ct.drop_correlated(self.X, self.y, max_corr=0.95)
+        self.assertEqual(len(dropped), 1)
+        self.assertIn("texture", kept)
+        self.assertIn("weak_size", kept)
+        (gone, twin), = dropped.items()
+        self.assertEqual({gone, twin}, {"area", "area_copy"})
+        self.assertEqual(kept, [c for c in self.X.columns if c != gone])
+
+    def test_keeps_more_label_related_copy(self):
+        X = self.X.assign(area_copy=self.X["area"] - 0.5 * self.y)   # r ~ 0.98 with area, weaker label link
+        kept, dropped = ct.drop_correlated(X, self.y, max_corr=0.9)
+        self.assertEqual(dropped, {"area_copy": "area"})
+
+    def test_threshold_one_keeps_everything(self):
+        kept, dropped = ct.drop_correlated(self.X, self.y, max_corr=1.0)
+        self.assertEqual(kept, list(self.X.columns))
+        self.assertEqual(dropped, {})
+
+
 if __name__ == "__main__":
     unittest.main()
