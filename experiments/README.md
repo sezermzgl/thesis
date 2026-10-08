@@ -1,3 +1,24 @@
+# Experiments
+
+## One notebook for the v2 pipeline (recommended)
+
+[`tn3k_v2_pipeline_colab.ipynb`](tn3k_v2_pipeline_colab.ipynb) runs everything in one go on an L4 runtime:
+
+- **Part A:** radiomics v2 extraction. Cached on Drive, so it runs once.
+- **Part B:** XGBoost benchmark, v1 vs v2.
+- **Part C:** LLM fine-tuning, LTT and miss-rate evaluation. Results go to the shared `summary.csv`.
+
+To try another backbone or setting, change the Configuration cell, restart the session and run all; Part A loads from the cache. `VALUE_FORMAT` sets how values appear in the prompt:
+
+- `"decimal"`: the format of all earlier runs.
+- `"zscore"`: states that the value is a z-score relative to the training nodules.
+- `"percentile"`: gives the percentile among the training nodules, computed on the train split only.
+
+Open it in Colab:
+https://colab.research.google.com/github/sezermzgl/thesis/blob/main/experiments/tn3k_v2_pipeline_colab.ipynb
+
+The notebooks below are kept so that earlier runs stay reproducible.
+
 # Backbone sweep
 
 `model_sweep.py` re-runs the notebook pipeline (Part A prompts, Part B QLoRA fine-tuning) with a different LLM backbone. It then reports classification metrics, the softmax LTT result and the exploratory miss-rate guarantee (report Section 10.3) on the same splits. Each call fine-tunes one model, so long runs can be spread over several sessions.

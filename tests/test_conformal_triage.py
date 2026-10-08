@@ -158,6 +158,14 @@ class TestPrompts(unittest.TestCase):
         self.assertIn("'Gray Level Non Uniformity (GLRLM)'", text)
         self.assertIn("'Elongation' feature", text)
 
+    def test_value_formats(self):
+        z = ct.render_prompt(self.names, self.values, value_format="zscore")
+        self.assertIn("'Range' feature has a z-score of -1.25 relative to the training nodules.", z)
+        pct = ct.render_prompt(self.names, np.array([12.4, 50.0, 97.6]), value_format="percentile")
+        self.assertIn("'Major Axis Length' feature is at percentile 12 of the training nodules.", pct)
+        self.assertEqual(ct.render_prompt(self.names, self.values),
+                         ct.render_prompt(self.names, self.values, value_format="decimal"))
+
     def test_drop_removes_only_that_feature(self):
         drops = self.variants()[9:]
         self.assertNotIn("Range", drops[1]["prompt"])

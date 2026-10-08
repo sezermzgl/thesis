@@ -22,6 +22,13 @@ import pandas as pd
 INTRO = ("Classify this thyroid nodule as benign or malignant based on "
          "the following standardized radiomic features.")
 SENTENCE = "The '{name}' feature is measured at {value:.3f}."
+# How a value is written. "decimal" is the training format of all earlier runs; the others state
+# what the number is relative to. For "percentile" the caller passes percentiles (0-100).
+SENTENCES = {
+    "decimal": SENTENCE,
+    "zscore": "The '{name}' feature has a z-score of {value:+.2f} relative to the training nodules.",
+    "percentile": "The '{name}' feature is at percentile {value:.0f} of the training nodules.",
+}
 
 
 FAMILY_LABELS = {"shape2D": "shape", "firstorder": "first-order", "glcm": "GLCM", "glszm": "GLSZM",
@@ -64,11 +71,13 @@ def display_names(feature_names: list[str]) -> list[str]:
     return out
 
 
-def render_prompt(feature_names: list[str], values: np.ndarray, dropped: int | None = None) -> str:
+def render_prompt(feature_names: list[str], values: np.ndarray, dropped: int | None = None,
+                  value_format: str = "decimal") -> str:
     """Training-format prompt (identical to build_prompt in A11), optionally without one feature."""
     names = display_names(feature_names)
+    sentence = SENTENCES[value_format]
     sentences = [
-        SENTENCE.format(name=name, value=value)
+        sentence.format(name=name, value=value)
         for i, (name, value) in enumerate(zip(names, values))
         if i != dropped
     ]
