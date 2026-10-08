@@ -18,6 +18,9 @@ Run from the repo root:
     python experiments/model_sweep.py --model Qwen/Qwen2.5-7B --batch 4 --grad-accum 4
     python experiments/model_sweep.py --model Qwen/Qwen2.5-1.5B --n-features 16 --max-length 512
     python experiments/model_sweep.py --dry-run          # data + prompts only, no GPU
+
+Precision: bf16 on Ampere or newer GPUs (A100, L4), fp16 otherwise (T4); override with
+--precision.
 """
 
 import argparse
@@ -87,6 +90,20 @@ def prepare_data(n_features: int, seed: int):
 
 # ----------------------------------------------------------------------------- model
 
+def resolve_precision(choice: str):
+    """'auto' -> bf16 on compute capability >= 8 (A100, L4), fp16 otherwise (T4).
+
+    Capability is checked directly because torch.cuda.is_bf16_supported() can report True
+    on older GPUs that only emulate bf16, which is much slower.
+    """
+    import torch
+
+    if choice == "auto":
+        ampere = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 8
+        choice = "bf16" if ampere else "fp16"
+    return choice, torch.bfloat16 if choice == "bf16" else torch.float16
+
+
 def train_model(args, data):
     import torch
     import torch.nn as nn
@@ -96,15 +113,19 @@ def train_model(args, data):
                               BitsAndBytesConfig, Trainer, TrainingArguments)
 
     torch.manual_seed(args.seed)
+    args.precision_used, dtype = resolve_precision(args.precision)
+    args.gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+    print(f"GPU: {args.gpu} | precision: {args.precision_used}")
+
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForSequenceClassification.from_pretrained(
-        args.model, num_labels=2, device_map="auto", torch_dtype=torch.float16,
+        args.model, num_labels=2, device_map="auto", torch_dtype=dtype,
         quantization_config=BitsAndBytesConfig(
             load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_use_double_quant=True,
-            bnb_4bit_compute_dtype=torch.float16))
+            bnb_4bit_compute_dtype=dtype))
     model.config.pad_token_id = tokenizer.pad_token_id
     model = prepare_model_for_kbit_training(model)
 
@@ -155,7 +176,7 @@ def train_model(args, data):
 
     def compute_metrics(eval_pred):
         logits, labels = eval_pred
-        probs = torch.softmax(torch.tensor(logits), dim=-1).numpy()[:, 1]
+        probs = torch.softmax(torch.tensor(np.asarray(logits, dtype=np.float32)), dim=-1).numpy()[:, 1]
         return {"auc": roc_auc_score(labels, probs)}
 
     steps_per_epoch = math.ceil(len(data["train"]) / (args.batch * args.grad_accum))
@@ -168,7 +189,8 @@ def train_model(args, data):
             lr_scheduler_type="cosine", warmup_steps=math.ceil(0.05 * steps_per_epoch * args.epochs),
             logging_steps=20, save_strategy="epoch", eval_strategy="epoch", save_total_limit=1,
             load_best_model_at_end=True, metric_for_best_model="auc",
-            fp16=True, gradient_checkpointing=True, report_to="none", seed=args.seed),
+            bf16=args.precision_used == "bf16", fp16=args.precision_used == "fp16",
+            gradient_checkpointing=True, report_to="none", seed=args.seed),
         train_dataset=PromptDataset(data["train"]), eval_dataset=PromptDataset(data["validation"]),
         compute_metrics=compute_metrics)
     trainer.train()
@@ -232,6 +254,8 @@ def main():
     ap.add_argument("--max-length", type=int, default=256)
     ap.add_argument("--target-modules", default="", help="comma-separated; default: q_proj,v_proj or qkv_proj")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--precision", choices=["auto", "bf16", "fp16"], default="auto",
+                    help="auto: bf16 on A100/L4 (compute capability >= 8), fp16 on T4")
     ap.add_argument("--out", default=str(REPO / "outputs" / "model_sweep"),
                     help="output folder; point it at Google Drive to survive the Colab session")
     ap.add_argument("--dry-run", action="store_true", help="prepare data and prompts only")
@@ -260,6 +284,7 @@ def main():
             args.run_dir / f"probs_{s}.csv", index=False)
 
     row = {"run": tag, "model": args.model, "n_features": len(selected), "epochs": args.epochs,
+           "gpu": args.gpu, "precision": args.precision_used,
            "minutes": round((time.time() - start) / 60, 1), **evaluate(probs, labels)}
     pd.Series(row).to_json(args.run_dir / "metrics.json", indent=2)
     summary = Path(args.out) / "summary.csv"

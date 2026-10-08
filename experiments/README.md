@@ -34,7 +34,9 @@ from google.colab import drive; drive.mount("/content/drive")
 !python experiments/model_sweep.py --model Qwen/Qwen2.5-3B --out /content/drive/MyDrive/thesis_model_sweep
 ```
 
-Writing to Google Drive keeps the results when the Colab session ends. Each run creates `<out>/<model>_f<features>_e<epochs>_s<seed>/`:
+Writing to Google Drive keeps the results when the Colab session ends.
+
+**Colab Pro.** Choose the GPU under Runtime → Change runtime type. L4 is the cheaper default for 7–8B models; A100 is faster but uses compute units roughly 2–3× faster. Precision is picked automatically: bf16 on A100/L4 (more stable for large models), fp16 on T4. `--precision fp16` forces fp16, for example to match earlier T4 runs. When the runs finish, use Runtime → Disconnect and delete runtime, because an idle GPU still uses compute units. Each run creates `<out>/<model>_f<features>_e<epochs>_s<seed>/`:
 
 | file | contents |
 |---|---|
@@ -50,6 +52,7 @@ Every run also appends one row to `<out>/summary.csv`.
 
 ## Metrics in `summary.csv`
 
+- `gpu`, `precision`, `minutes`: where and how the run was trained. Compare models trained with the same precision where possible.
 - `{split}_acc/_f1/_auc/_sens`: classification at the 0.5 threshold.
 - `{split}_auc_correct_softmax`: how well softmax confidence separates correct from incorrect predictions (report Section 10.2).
 - `ltt_t`, `ltt_u`: thresholds certified by LTT on calibration (R1 ≤ 5%, R2 ≤ 20%, δ = 0.05, notebook D6 grids); empty means nothing was certified. `ltt_test_auto_*` gives the resulting test counts.
