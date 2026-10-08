@@ -2,6 +2,15 @@
 
 `model_sweep.py` re-runs the notebook pipeline (Part A prompts, Part B QLoRA fine-tuning) with a different LLM backbone. It then reports classification metrics, the softmax LTT result and the exploratory miss-rate guarantee (report Section 10.3) on the same splits. Each call fine-tunes one model, so long runs can be spread over several sessions.
 
+## Splits
+
+`SPLIT_SCHEME` (notebook) or `--splits` (script) selects the data split:
+
+- `pooled_seed42` (notebook default): all 3,493 images are pooled and re-split from `splits/pooled_seed42.csv`, stratified by label and by official source. Train has 2,095 images, validation 436, calibration 524 and test 438. Calibration and test come from the same distribution (two-sample AUC ≈ 0.43–0.48), so the conformal guarantees apply to the test split. Recreate the file with `python experiments/make_pooled_splits.py`.
+- `official`: the main notebook's splits. Calibration comes from trainval and test is the official TN3K test set; these are not exchangeable (report Section 5).
+
+mRMR and standardization are refitted on the chosen train split, so the selected features can differ between schemes.
+
 ## Candidate backbones
 
 All of these have a sequence-classification head in `transformers` and fit a 16 GB T4 with 4-bit QLoRA. Run times are rough extrapolations from the measured 30 minutes for Qwen2.5-1.5B (5 epochs); they have not been measured.

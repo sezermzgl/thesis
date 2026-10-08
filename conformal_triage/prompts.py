@@ -25,8 +25,9 @@ SENTENCE = "The '{name}' feature is measured at {value:.3f}."
 
 
 def readable_feature_name(raw_name: str) -> str:
+    """'original_glszm_LargeAreaEmphasis' -> 'Large Area Emphasis'; acronyms stay whole ('MCC')."""
     name = raw_name.split("_")[-1]
-    return re.sub(r"(?<!^)(?=[A-Z])", " ", name).strip()
+    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name).strip()
 
 
 def render_prompt(feature_names: list[str], values: np.ndarray, dropped: int | None = None) -> str:

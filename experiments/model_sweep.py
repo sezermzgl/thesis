@@ -18,6 +18,11 @@ Run from the repo root:
     python experiments/model_sweep.py --model Qwen/Qwen2.5-7B --batch 4 --grad-accum 4
     python experiments/model_sweep.py --model Qwen/Qwen2.5-1.5B --n-features 16 --max-length 512
     python experiments/model_sweep.py --dry-run          # data + prompts only, no GPU
+    python experiments/model_sweep.py --splits pooled_seed42 --model Qwen/Qwen2.5-1.5B
+
+--splits official uses the notebook's splits (calibration from trainval, test = official test,
+which is not exchangeable with calibration). --splits pooled_seed42 uses splits/pooled_seed42.csv
+from experiments/make_pooled_splits.py, where all four splits mix both sources.
 
 Precision: bf16 on Ampere or newer GPUs (A100, L4), fp16 otherwise (T4); override with
 --precision.
@@ -53,11 +58,35 @@ MISS_GRID = [round(x, 2) for x in np.arange(0.01, 0.51, 0.01)]
 
 # ----------------------------------------------------------------------------- data
 
-def prepare_data(n_features: int, seed: int):
+def load_tables(split_scheme: str = "official") -> dict:
+    """Radiomics tables per split: the notebook's splits, or a pooled split from splits/<scheme>.csv."""
+    tables = {s: pd.read_csv(REPO / "features" / f"radiomics_{s}.csv") for s in SPLITS}
+    if split_scheme == "official":
+        return tables
+    pool = pd.concat(tables.values(), ignore_index=True)
+    pool["sample_id"] = pool["official_split"].astype(str) + "/" + pool["id"].astype(str)
+    assignment = pd.read_csv(REPO / "splits" / f"{split_scheme}.csv").set_index("sample_id")["split"]
+    pool["new_split"] = pool["sample_id"].map(assignment)
+    if pool["new_split"].isna().any():
+        raise ValueError(f"{int(pool['new_split'].isna().sum())} images missing from {split_scheme}.csv")
+    return {s: pool[pool["new_split"] == s].drop(columns="new_split").reset_index(drop=True)
+            for s in SPLITS}
+
+
+def append_summary(path: Path, row: dict) -> pd.DataFrame:
+    """Add one run to summary.csv, keeping earlier rows even if the columns changed."""
+    summary = pd.DataFrame([row])
+    if path.exists():
+        summary = pd.concat([pd.read_csv(path), summary], ignore_index=True)
+    summary.to_csv(path, index=False)
+    return summary
+
+
+def prepare_data(n_features: int, seed: int, split_scheme: str = "official"):
     """Part A10-A11: train-only imputation, z-scoring and mRMR; training-format prompts."""
     from mrmr import mrmr_classif
 
-    tables = {s: pd.read_csv(REPO / "features" / f"radiomics_{s}.csv") for s in SPLITS}
+    tables = load_tables(split_scheme)
     train = tables["train"]
     feature_columns = [c for c in train.columns
                        if c not in META_COLUMNS and pd.api.types.is_numeric_dtype(train[c])]
@@ -247,6 +276,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", default="Qwen/Qwen2.5-1.5B", help="Hugging Face model id")
     ap.add_argument("--n-features", type=int, default=8)
+    ap.add_argument("--splits", default="official",
+                    help="'official' or a file name in splits/, e.g. pooled_seed42")
     ap.add_argument("--epochs", type=int, default=5)
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--batch", type=int, default=8, help="per-device train batch size")
@@ -261,13 +292,16 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="prepare data and prompts only")
     args = ap.parse_args()
 
-    data, selected = prepare_data(args.n_features, args.seed)
+    data, selected = prepare_data(args.n_features, args.seed, args.splits)
+    print("Splits:", args.splits, {k: len(v) for k, v in data.items()})
     print(f"{len(selected)} features (mRMR on train): {selected}")
     print("Example prompt:", data["validation"]["prompt"].iloc[0])
     if args.dry_run:
         return
 
     tag = f"{args.model.split('/')[-1]}_f{args.n_features}_e{args.epochs}_s{args.seed}"
+    if args.splits != "official":
+        tag += f"_{args.splits}"
     args.run_dir = Path(args.out) / tag
     args.run_dir.mkdir(parents=True, exist_ok=True)
     (args.run_dir / "config.json").write_text(json.dumps(
@@ -283,12 +317,13 @@ def main():
         data[s].assign(prob_malignant=probs[s]).drop(columns="prompt").to_csv(
             args.run_dir / f"probs_{s}.csv", index=False)
 
-    row = {"run": tag, "model": args.model, "n_features": len(selected), "epochs": args.epochs,
+    row = {"run": tag, "model": args.model, "split_scheme": args.splits,
+           "n_features": len(selected), "epochs": args.epochs,
            "gpu": args.gpu, "precision": args.precision_used,
            "minutes": round((time.time() - start) / 60, 1), **evaluate(probs, labels)}
     pd.Series(row).to_json(args.run_dir / "metrics.json", indent=2)
     summary = Path(args.out) / "summary.csv"
-    pd.DataFrame([row]).to_csv(summary, mode="a", header=not summary.exists(), index=False)
+    append_summary(summary, row)
     print(pd.Series(row).to_string())
     print("Saved:", args.run_dir, "and", summary)
 

@@ -137,6 +137,14 @@ class TestPrompts(unittest.TestCase):
             self.assertEqual(x["prompt"].count("feature is measured at"), 3)
             self.assertNotEqual(x["prompt"], self.variants()[0]["prompt"])
 
+    def test_readable_names(self):
+        from conformal_triage.prompts import readable_feature_name as r
+        self.assertEqual(r("original_glszm_LargeAreaHighGrayLevelEmphasis"),
+                         "Large Area High Gray Level Emphasis")
+        self.assertEqual(r("original_shape2D_MajorAxisLength"), "Major Axis Length")
+        self.assertEqual(r("original_glcm_MCC"), "MCC")
+        self.assertEqual(r("original_firstorder_10Percentile"), "10 Percentile")
+
     def test_drop_removes_only_that_feature(self):
         drops = self.variants()[9:]
         self.assertNotIn("Range", drops[1]["prompt"])
