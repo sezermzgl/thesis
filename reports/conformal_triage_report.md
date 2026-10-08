@@ -1,6 +1,6 @@
 # Conformal Triage for Thyroid Nodules: Full Report
 
-*Status as of 2026-10-02; Section 10 added 2026-10-07. Run records: [`runs/2026-10-02_part_d_m10`](../runs/2026-10-02_part_d_m10/RESULTS.md) (run 1) and [`runs/2026-10-02_part_d_jitter`](../runs/2026-10-02_part_d_jitter/RESULTS.md) (run 2).*
+*Status as of 2026-10-02; Section 10 added 2026-10-07, Section 11 added 2026-10-08. Run records: [`runs/2026-10-02_part_d_m10`](../runs/2026-10-02_part_d_m10/RESULTS.md) (run 1) and [`runs/2026-10-02_part_d_jitter`](../runs/2026-10-02_part_d_jitter/RESULTS.md) (run 2).*
 
 ## 1. Summary
 
@@ -153,7 +153,9 @@ The ranking is the same on test.
 | benign only | 0.644 | 0.002 |
 | malignant only | 0.633 | 0.002 |
 
-Test nodules are larger. Mean standardized values, calibration → test: MajorAxisLength −0.04 → +0.34, MaximumDiameter −0.03 → +0.31, LargeAreaHighGrayLevelEmphasis −0.01 → +0.44. The model's most relied-on features (Section 4.6) are the ones that shift most. Because the shift holds within each class, it is not explained by the different malignant share.
+Test nodules are larger **in pixels**. Mean standardized values, calibration → test: MajorAxisLength −0.04 → +0.34, MaximumDiameter −0.03 → +0.31, LargeAreaHighGrayLevelEmphasis −0.01 → +0.44. The model's most relied-on features (Section 4.6) are the ones that shift most. Because the shift holds within each class, it is not explained by the different malignant share.
+
+**Correction (2026-10-08, from the image QC table; see Section 11.4).** The official-test *images* are larger (median 436×375 vs 390×336 pixels), and image width alone separates official test from trainval with AUC 0.77. Relative to the image, test nodules are slightly *smaller* (median nodule area 7.0% vs 8.6% of the image). Shape features are in pixels because no physical pixel spacing is available, so the size shift is largely an image-size artefact rather than a difference between nodules.
 
 ## 6. Number of features (classical models)
 
@@ -165,11 +167,11 @@ AUC with the model trained on train, as validation / official test:
 | shape2D only (9) | 0.707 / 0.654 | 0.743 / 0.661 | 0.736 / 0.646 |
 | all 67 | 0.740 / 0.699 | 0.755 / 0.663 | 0.786 / 0.654 |
 
-More features did not improve performance on the official test set: validation AUC rises from about 0.69 to 0.74–0.79, but test AUC stays at 0.65–0.70 (0.65–0.67 with 8 features). The gain appears only within the trainval distribution, consistent with Section 5. This has not yet been tested with the LLM.
+More features did not improve performance on the official test set: validation AUC rises from about 0.69 to 0.74–0.79, but test AUC stays at 0.65–0.70 (0.65–0.67 with 8 features). The gain appears only within the trainval distribution, consistent with Section 5. This has not yet been tested with the LLM. On an exchangeable split the gain does carry over to the test set (Section 11.3).
 
 ## 7. Limitations
 
-- **Weak base model, which drives the main negative results.** AUC is 0.70 on validation and 0.67 on test, using a 1.5B model with 4-bit QLoRA, 5 epochs and a free T4. Ra et al. used LLaMA2-7B for 500 epochs. The errors that block LTT come from the base model itself, not from the perturbations. The base prompt alone is wrong on 35% of calibration nodules, and 56% of those errors are repeated in all 10 queries, so no vote threshold can flag them (Section 10.1). The current limitations of the triage layer are therefore limitations of the model it sits on.
+- **Weak base model, which drives the main negative results.** AUC is 0.70 on validation and 0.67 on test, using a 1.5B model with 4-bit QLoRA, 5 epochs and a free T4. Ra et al. used LLaMA2-7B for 500 epochs. The errors that block LTT come from the base model itself, not from the perturbations. The base prompt alone is wrong on 35% of calibration nodules, and 56% of those errors are repeated in all 10 queries, so no vote threshold can flag them (Section 10.1). The current limitations of the triage layer are therefore limitations of the model it sits on. A 7B backbone gives the same AUC as the 1.5B model (Section 11.1), so the limit appears to be the input features rather than model size.
 - **Numbers as text.** The model reads standardized values as tokens. Run 1 showed it depends on feature position more than on content.
 - **Only 8 features** (Section 6).
 - **Noise level not grounded in real measurement variability.** A principled alternative is to perturb the segmentation masks and re-extract the features, which needs the images.
@@ -252,3 +254,68 @@ The method combines two established ideas, which places the results in context:
 - **Uncertainty from repeated or perturbed queries.** This follows the consistency- and sampling-based uncertainty literature for LLMs: self-consistency (Wang et al.), semantic entropy (Kuhn et al., 2023), and conformal prediction from sampling frequencies (Su et al., "API Is Enough: Conformal Prediction for Large Language Models Without Logit-Access", 2024). The scoping review (Ashby et al., 2026, Finding 3) and Noorani et al. (2025) belong to the same line.
 
 A recurring point in this literature is that the guarantee is always valid, but its usefulness depends on how well the score ranks errors. This matches the results here. The contribution of this work is to apply the approach to a radiomics → LLM pipeline and to show that consistency signals that help in general NLP do not beat the softmax probability here, because the model's errors are stable.
+
+## 11. Addendum (2026-10-08): backbone sweep, exchangeable split, image QC
+
+This section was added after the report was first shared. 11.1–11.2 use new fine-tuning runs (`experiments/model_sweep_colab.ipynb`, Colab L4, bf16, the gradient-accumulation fix). 11.3–11.5 are offline analyses of the existing radiomics features and the image QC table. XGBoost uses fixed hyperparameters (300 trees, depth 3, learning rate 0.05, class weighting); they were not tuned.
+
+### 11.1 Larger backbone (official splits, 8 features)
+
+| model | validation AUC | calibration AUC | test AUC | LTT | training time (L4) |
+|---|---|---|---|---|---|
+| Qwen2.5-1.5B, earlier adapter (T4, fp16) | 0.704 | 0.707 | 0.672 | nothing certified | ~30 min (T4) |
+| Qwen2.5-1.5B, retrained (control) | 0.697 | 0.714 | 0.667 | nothing certified | 16 min |
+| Qwen2.5-7B | 0.697 | 0.686 | 0.669 | nothing certified | 57 min |
+
+- The retrained 1.5B control agrees with the earlier adapter (Spearman 0.97 between their test probabilities), so the earlier results are robust to the precision change and the loss fix.
+- The 7B model gives the same AUC. Its best checkpoint (by validation AUC) came from epoch 3, where validation loss was highest. That checkpoint over-predicts malignancy (test sensitivity 0.77, accuracy 0.58), and its softmax confidence no longer separates correct from incorrect predictions (AUC 0.45–0.50).
+- Early-epoch instability recurs: in the control run, validation sensitivity was 0 after epoch 1.
+- A 7B run with 16 features is in progress.
+
+### 11.2 Classical benchmark (official splits)
+
+| model | features | AUC (val / cal / test) | test sensitivity |
+|---|---|---|---|
+| LLM, Qwen2.5-1.5B | 8 | 0.697 / 0.714 / 0.667 | 0.62 |
+| XGBoost | 8 | 0.702 / 0.731 / 0.696 | 0.56 |
+| XGBoost | 16 | 0.729 / 0.764 / 0.709 | 0.57 |
+| logistic regression (balanced) | 8 / 16 | test 0.652 / 0.671 | 0.58 / 0.54 |
+| RF, SVM (as in Part C, no class weights) | 8 | test 0.663 / 0.648 | 0.33 / 0.31 |
+
+XGBoost matches or exceeds the LLM. The LLM stays the main model of this work and XGBoost is reported as a benchmark. No classical model gets an LTT certificate either. The low RF/SVM sensitivity comes from training without class weights.
+
+### 11.3 Exchangeable split (pooled and re-split)
+
+All 3,493 images (official trainval and test) were pooled and re-split at random, stratified by label and official source: train 2,095, validation 436, calibration 524, test 438. Each split holds about 17.5% official-test images and 34.7% malignant nodules. The split is in `splits/pooled_seed42.csv` (made by `experiments/make_pooled_splits.py`) and is the notebook default. Standardization and mRMR are refitted on the new train split, and two of the eight selected features change.
+
+- Exchangeability is restored. Two-sample AUC is 0.476 for validation vs calibration and 0.434 for calibration vs test (p = 1.0); with the official splits it was 0.63.
+- More features now help on the test set too. XGBoost AUC (val / cal / test): 8 features 0.733 / 0.756 / 0.694; 16 features 0.756 / 0.775 / 0.715; all 67 features 0.788 / 0.822 / **0.792**. The lack of a test gain in Section 6 was due to the shift.
+- The LLM still has to be retrained on this split. The existing adapters belong to the official splits.
+
+### 11.4 Image QC findings
+
+- Image sizes vary, and official-test images are larger (Section 5 correction). Shape features in pixels partly measure image size: MajorAxisLength correlates with image width at r = 0.42. Size still carries real signal (smaller nodules are more often malignant), and relative size carries about the same signal (AUC 0.67 vs 0.66 for pixel size), so size should be normalised rather than dropped.
+- Image width alone predicts malignancy weakly (AUC 0.57), which suggests an acquisition-related confounder.
+- Multi-component masks make up 7.8% of trainval and 11.7% of test; masks touching the image border make up 11.2% and 5.4%. Both groups are less often malignant (22% vs 36%).
+- Texture features use `binWidth = 25`, which leaves a median of about 9 grey levels inside a nodule (IQR 7–10).
+
+### 11.5 Where LTT stands
+
+On the exchangeable split, the best classical model (XGBoost, 67 features) ranks calibration nodules by malignancy score. Its 78 lowest-scored nodules contain 3 cancers (3.8%), already below the 5% target. LTT still cannot certify this group, because with 78 nodules the evidence is too weak (zero cancers would be needed). To certify the same 3.8% rate, the group would need roughly 1,000 nodules (a rough estimate). The two levers are therefore:
+
+- cleaner features, which make this group purer;
+- a larger calibration set, which strengthens the evidence. ThyroidXL can help here, used as a separate dataset.
+
+A binormal simulation with the current calibration size points the same way: a 5% certificate becomes likely only for a much stronger model. Its exact threshold depends on the shape of the score distribution, so it is not a fixed requirement.
+
+### 11.6 Planned re-extraction (PyRadiomics)
+
+| setting | original extraction | planned |
+|---|---|---|
+| grey levels for texture | `binWidth = 25` (about 9 levels in a nodule) | fixed bin count, 32–64 |
+| shape features | pixels, sizes vary across images | normalised to image size (or image size recorded as a covariate) |
+| feature families | shape2D, first-order, GLCM, GLSZM (67 features) | add GLRLM, GLDM, NGTDM; consider wavelet/LoG-filtered images |
+| multi-component masks | used as they are | rule to be fixed in advance (e.g. keep the largest component) |
+| border-touching masks | used as they are | flag kept, effect checked |
+
+The new features will first be checked quickly with XGBoost on the exchangeable split, then used for the LLM.
