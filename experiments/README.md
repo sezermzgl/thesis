@@ -25,6 +25,11 @@ Gated models need the license to be accepted on the model page with your own Hug
 
 ## Colab
 
+**Step-by-step notebook (recommended):** [`model_sweep_colab.ipynb`](model_sweep_colab.ipynb). Every step is a visible cell with its own output. Open it directly in Colab:
+https://colab.research.google.com/github/sezermzgl/thesis/blob/main/experiments/model_sweep_colab.ipynb
+
+**Script version** (the same steps in one command):
+
 ```
 !git clone https://github.com/sezermzgl/thesis.git
 %cd /content/thesis
