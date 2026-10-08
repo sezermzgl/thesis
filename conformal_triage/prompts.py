@@ -24,17 +24,52 @@ INTRO = ("Classify this thyroid nodule as benign or malignant based on "
 SENTENCE = "The '{name}' feature is measured at {value:.3f}."
 
 
-def readable_feature_name(raw_name: str) -> str:
-    """'original_glszm_LargeAreaEmphasis' -> 'Large Area Emphasis'; acronyms stay whole ('MCC')."""
-    name = raw_name.split("_")[-1]
+FAMILY_LABELS = {"shape2D": "shape", "firstorder": "first-order", "glcm": "GLCM", "glszm": "GLSZM",
+                 "glrlm": "GLRLM", "gldm": "GLDM", "ngtdm": "NGTDM"}
+
+
+def _split_words(name: str) -> str:
     return re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name).strip()
+
+
+def readable_feature_name(raw_name: str) -> str:
+    """'original_glszm_LargeAreaEmphasis' -> 'Large Area Emphasis'; acronyms stay whole ('MCC').
+
+    Features from filtered images get the filter in front: 'LoG 2.0 Mean', 'Wavelet LH Mean'.
+    """
+    parts = raw_name.split("_")
+    name = _split_words(parts[-1])
+    image_type = parts[0] if len(parts) >= 3 else "original"
+    if image_type == "original":
+        return name
+    if image_type.startswith("log-sigma-"):                   # e.g. 'log-sigma-2-0-mm-3D'
+        sigma = image_type[len("log-sigma-"):].split("-mm")[0].replace("-", ".")
+        return f"LoG {sigma} {name}"
+    if image_type.startswith("wavelet-"):                     # e.g. 'wavelet-LH'
+        return f"Wavelet {image_type.split('-', 1)[1]} {name}"
+    return f"{image_type} {name}"
+
+
+def display_names(feature_names: list[str]) -> list[str]:
+    """Names used in a prompt. A name shared by several features (e.g. 'Gray Level Non Uniformity'
+    in GLSZM, GLRLM and GLDM) gets its feature family added, so every feature stays distinct."""
+    names = [readable_feature_name(f) for f in feature_names]
+    shared = {n for n in names if names.count(n) > 1}
+    out = []
+    for raw, name in zip(feature_names, names):
+        parts = raw.split("_")
+        if name in shared and len(parts) >= 3:
+            name = f"{name} ({FAMILY_LABELS.get(parts[-2], parts[-2])})"
+        out.append(name)
+    return out
 
 
 def render_prompt(feature_names: list[str], values: np.ndarray, dropped: int | None = None) -> str:
     """Training-format prompt (identical to build_prompt in A11), optionally without one feature."""
+    names = display_names(feature_names)
     sentences = [
-        SENTENCE.format(name=readable_feature_name(name), value=value)
-        for i, (name, value) in enumerate(zip(feature_names, values))
+        SENTENCE.format(name=name, value=value)
+        for i, (name, value) in enumerate(zip(names, values))
         if i != dropped
     ]
     return " ".join([INTRO, *sentences])

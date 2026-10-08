@@ -2,6 +2,21 @@
 
 `model_sweep.py` re-runs the notebook pipeline (Part A prompts, Part B QLoRA fine-tuning) with a different LLM backbone. It then reports classification metrics, the softmax LTT result and the exploratory miss-rate guarantee (report Section 10.3) on the same splits. Each call fine-tunes one model, so long runs can be spread over several sessions.
 
+## Radiomics v2 (re-extraction)
+
+[`radiomics_v2_colab.ipynb`](radiomics_v2_colab.ipynb) re-extracts the features from the TN3K images with the settings of report Section 11.6:
+
+- 64 grey levels;
+- size features relative to the image size;
+- GLRLM, GLDM and NGTDM added;
+- largest mask component only;
+- optional LoG and wavelet filters.
+
+It also compares v2 with v1 on the exchangeable split using XGBoost. It writes to its own Drive folder (`tn3k_gt_radiomics_v2/`) and does not touch v1 (`features/`). A CPU runtime is enough. Open it in Colab:
+https://colab.research.google.com/github/sezermzgl/thesis/blob/main/experiments/radiomics_v2_colab.ipynb
+
+To train the LLM on v2, set `FEATURE_SET = "v2"` in the sweep notebook, or pass `--features <path to radiomics_v2_all.csv>` to the script. The default `"v1"` keeps earlier runs reproducible.
+
 ## Splits
 
 `SPLIT_SCHEME` (notebook) or `--splits` (script) selects the data split:

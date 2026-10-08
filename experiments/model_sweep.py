@@ -48,7 +48,8 @@ from conformal_triage import calibrate_triage, predict_malignant_proba, render_p
 
 SPLITS = ["train", "validation", "calibration", "test"]
 META_COLUMNS = ["id", "sample_id", "image_name", "official_split", "analysis_split",
-                "label", "label_name", "mask_source", "source_split"]
+                "label", "label_name", "mask_source", "source_split",
+                "image_width", "image_height", "n_components_raw", "kept_component_fraction", "touches_border", "mask_pixels"]  # v2 metadata, not features
 
 # Same candidate thresholds as notebook D6, fixed in advance.
 P_T_GRID = [round(x, 2) for x in np.arange(0.05, 0.50, 0.05)]
@@ -58,17 +59,27 @@ MISS_GRID = [round(x, 2) for x in np.arange(0.01, 0.51, 0.01)]
 
 # ----------------------------------------------------------------------------- data
 
-def load_tables(split_scheme: str = "official") -> dict:
-    """Radiomics tables per split: the notebook's splits, or a pooled split from splits/<scheme>.csv."""
-    tables = {s: pd.read_csv(REPO / "features" / f"radiomics_{s}.csv") for s in SPLITS}
+def load_tables(split_scheme: str = "official", features: str = "v1") -> dict:
+    """Radiomics tables per split.
+
+    features: "v1" (repo tables) or the path of a re-extracted table such as radiomics_v2_all.csv.
+    split_scheme: "official" (the notebook's splits) or a file name in splits/, e.g. pooled_seed42.
+    """
+    v1_tables = {s: pd.read_csv(REPO / "features" / f"radiomics_{s}.csv") for s in SPLITS}
+    if features == "v1" and split_scheme == "official":
+        return v1_tables
+    pool = (pd.concat(v1_tables.values(), ignore_index=True) if features == "v1"
+            else pd.read_csv(features))
+    pool["sample_id"] = pool["official_split"].astype(str) + "/" + pool["id"].astype(int).astype(str)
     if split_scheme == "official":
-        return tables
-    pool = pd.concat(tables.values(), ignore_index=True)
-    pool["sample_id"] = pool["official_split"].astype(str) + "/" + pool["id"].astype(str)
-    assignment = pd.read_csv(REPO / "splits" / f"{split_scheme}.csv").set_index("sample_id")["split"]
+        assignment = pd.concat([t.assign(split=s) for s, t in v1_tables.items()])
+        assignment = assignment.set_index(assignment["official_split"].astype(str) + "/"
+                                          + assignment["id"].astype(str))["split"]
+    else:
+        assignment = pd.read_csv(REPO / "splits" / f"{split_scheme}.csv").set_index("sample_id")["split"]
     pool["new_split"] = pool["sample_id"].map(assignment)
     if pool["new_split"].isna().any():
-        raise ValueError(f"{int(pool['new_split'].isna().sum())} images missing from {split_scheme}.csv")
+        raise ValueError(f"{int(pool['new_split'].isna().sum())} images have no split in {split_scheme}")
     return {s: pool[pool["new_split"] == s].drop(columns="new_split").reset_index(drop=True)
             for s in SPLITS}
 
@@ -82,11 +93,11 @@ def append_summary(path: Path, row: dict) -> pd.DataFrame:
     return summary
 
 
-def prepare_data(n_features: int, seed: int, split_scheme: str = "official"):
+def prepare_data(n_features: int, seed: int, split_scheme: str = "official", features: str = "v1"):
     """Part A10-A11: train-only imputation, z-scoring and mRMR; training-format prompts."""
     from mrmr import mrmr_classif
 
-    tables = load_tables(split_scheme)
+    tables = load_tables(split_scheme, features)
     train = tables["train"]
     feature_columns = [c for c in train.columns
                        if c not in META_COLUMNS and pd.api.types.is_numeric_dtype(train[c])]
@@ -276,6 +287,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", default="Qwen/Qwen2.5-1.5B", help="Hugging Face model id")
     ap.add_argument("--n-features", type=int, default=8)
+    ap.add_argument("--features", default="v1",
+                    help="'v1' or the path of a re-extracted table (radiomics_v2_all.csv)")
     ap.add_argument("--splits", default="official",
                     help="'official' or a file name in splits/, e.g. pooled_seed42")
     ap.add_argument("--epochs", type=int, default=5)
@@ -292,7 +305,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="prepare data and prompts only")
     args = ap.parse_args()
 
-    data, selected = prepare_data(args.n_features, args.seed, args.splits)
+    data, selected = prepare_data(args.n_features, args.seed, args.splits, args.features)
     print("Splits:", args.splits, {k: len(v) for k, v in data.items()})
     print(f"{len(selected)} features (mRMR on train): {selected}")
     print("Example prompt:", data["validation"]["prompt"].iloc[0])
@@ -302,6 +315,8 @@ def main():
     tag = f"{args.model.split('/')[-1]}_f{args.n_features}_e{args.epochs}_s{args.seed}"
     if args.splits != "official":
         tag += f"_{args.splits}"
+    if args.features != "v1":
+        tag += f"_{Path(args.features).stem}"
     args.run_dir = Path(args.out) / tag
     args.run_dir.mkdir(parents=True, exist_ok=True)
     (args.run_dir / "config.json").write_text(json.dumps(
@@ -317,7 +332,7 @@ def main():
         data[s].assign(prob_malignant=probs[s]).drop(columns="prompt").to_csv(
             args.run_dir / f"probs_{s}.csv", index=False)
 
-    row = {"run": tag, "model": args.model, "split_scheme": args.splits,
+    row = {"run": tag, "model": args.model, "feature_set": args.features, "split_scheme": args.splits,
            "n_features": len(selected), "epochs": args.epochs,
            "gpu": args.gpu, "precision": args.precision_used,
            "minutes": round((time.time() - start) / 60, 1), **evaluate(probs, labels)}

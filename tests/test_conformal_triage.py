@@ -145,6 +145,19 @@ class TestPrompts(unittest.TestCase):
         self.assertEqual(r("original_glcm_MCC"), "MCC")
         self.assertEqual(r("original_firstorder_10Percentile"), "10 Percentile")
 
+    def test_names_from_filtered_images(self):
+        from conformal_triage.prompts import readable_feature_name as r
+        self.assertEqual(r("log-sigma-2-0-mm-3D_firstorder_Mean"), "LoG 2.0 Mean")
+        self.assertEqual(r("wavelet-LH_glcm_Contrast"), "Wavelet LH Contrast")
+
+    def test_shared_names_get_family(self):
+        names = ["original_glszm_GrayLevelNonUniformity", "original_glrlm_GrayLevelNonUniformity",
+                 "original_shape2D_Elongation"]
+        text = ct.render_prompt(names, np.array([0.1, 0.2, 0.3]))
+        self.assertIn("'Gray Level Non Uniformity (GLSZM)'", text)
+        self.assertIn("'Gray Level Non Uniformity (GLRLM)'", text)
+        self.assertIn("'Elongation' feature", text)
+
     def test_drop_removes_only_that_feature(self):
         drops = self.variants()[9:]
         self.assertNotIn("Range", drops[1]["prompt"])
