@@ -7,11 +7,10 @@
 \begin{itemize}
   \item \textbf{A fair 7B run.} Qwen2.5-7B with a lower learning rate
         ($5 \times 10^{-5}$), so that model size is no longer confounded with unstable training.
-  \item \textbf{Plain-language formats.} The \emph{rich} format adds to each value its percentile and
-        a phrase on what the value means (for example ``lower than typical, meaning a less round,
-        more irregular outline''); \emph{semantic only} gives the phrase without numbers. Both are
-        implemented. If the model gains from them, it uses the meaning of the features, which is
-        the central claim of the approach.
+  \item \textbf{Meaning without numbers.} The \emph{rich} format did not help
+        (Section~\ref{sec:results-format}). The \emph{semantic only} format, which gives the band
+        and the phrase without any number, is implemented and will show how much the model can
+        learn from the meaning alone.
 \end{itemize}
 
 \section{Clinically motivated features}

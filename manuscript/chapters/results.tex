@@ -62,6 +62,7 @@ of 0.75--0.76.
     E & Qwen2.5-1.5B & v2, filtered  & z-score    & 0.729 & 0.756 & 0.759 & 0.65 & 37 \\
     F & Qwen2.5-1.5B & v2, filtered  & percentile & 0.709 & 0.713 & 0.734 & 0.65 & 37 \\
     G & Llama-2-7B   & v2, filtered  & decimal    & 0.705 & 0.709 & 0.731 & 0.66 & 182 \\
+    H & Qwen2.5-1.5B & v2, filtered  & rich       & 0.732 & 0.711 & 0.744 & 0.64 &  83 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -112,7 +113,8 @@ between the official sources, not of the features.
 \section{Does the number format matter?}
 \label{sec:results-format}
 
-Saying what the number is does not matter; how extreme the number is does.
+Saying what the number is does not matter; how extreme the number is does; and adding what the
+value means for the nodule does not help.
 
 \begin{table}[ht]
   \centering
@@ -124,6 +126,7 @@ Saying what the number is does not matter; how extreme the number is does.
     \midrule
     E $-$ D & z-score wording      & $[-0.016, +0.022]$ & $[-0.017, +0.029]$ \\
     F $-$ D & percentile values    & $[-0.075, -0.005]$ & $[-0.057, +0.022]$ \\
+    H $-$ D & rich: plain-language meaning added & $[-0.074, -0.011]$ & $[-0.041, +0.023]$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -134,6 +137,13 @@ Saying what the number is does not matter; how extreme the number is does.
         interval includes zero. A percentile maps a z-score of 2 and a z-score of 5 to nearly the
         same value (98 and 100), so the model loses the information that a value is extreme.
         The loss suggests that the model uses the magnitude of the numbers, not only their order.
+  \item The \emph{rich} format (run H) keeps the z-score and adds the percentile, a band
+        (``lower than typical'') and what the value means (``meaning a less round, more irregular
+        outline''). It does not help: test AUC 0.744 against 0.754, and 0.04 lower on calibration,
+        where the interval excludes zero. Validation AUC reached 0.719 after two epochs, faster
+        than run D, and then stayed at 0.73. The prompts are about 2.6 times as long (780 tokens at
+        most), and training took 83 minutes instead of 26. So far, plain-language meaning gives
+        the model nothing it does not already get from the numbers.
 \end{itemize}
 
 \section{Does a larger backbone help?}
@@ -281,6 +291,7 @@ pooled run, for 4--19\% of the calibration nodules (Table~\ref{tab:results-miss}
     E & 0.21 & 19.1\% & 19.9\% & 5.9\% \\
     F & 0.26 &  9.2\% & 11.0\% & 3.3\% \\
     G & 0.17 &  6.9\% &  7.8\% & 0.7\% \\
+    H & 0.20 &  4.2\% &  3.7\% & 0.7\% \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -295,8 +306,8 @@ This analysis was not planned in advance and is reported as exploratory.
 \label{sec:results-splitcp}
 
 Classical split conformal prediction (Section~\ref{sec:methods-splitcp}) gives what it promises on
-the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.90--0.92 in all seven runs, and
-with $\alpha = 0.05$ it is 0.94--0.95. Marginal coverage, however, is carried by the benign
+the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.90--0.93 in all eight runs, and
+with $\alpha = 0.05$ it is 0.94--0.97. Marginal coverage, however, is carried by the benign
 majority: at $\alpha = 0.10$ only 70--86\% of the test cancers have ``malignant'' in their set.
 The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}).
 
@@ -323,15 +334,17 @@ The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}
     E & 0.934 & 22.8\% & 10.0\% & 16.7\% & 27.4\% & 60.5\% \\
     F & 0.928 & 18.5\% & 13.6\% & 15.8\% & 39.1\% & 65.8\% \\
     G & 0.954 & 18.0\% &  8.9\% & 14.6\% & 35.9\% & 67.4\% \\
+    H & 0.987 &  8.7\% &  5.3\% & 12.3\% & 27.8\% & 79.0\% \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 About a fifth of the nodules receive the single label ``benign'', and roughly 60\% are referred.
-Two caveats follow from the table. First, the cancers among the auto-benign calls make up 9--17\%
+Two caveats follow from the table. First, the cancers among the auto-benign calls make up 5--17\%
 of that group: the guarantee limits how many cancers are missed overall, not how safe a single
 benign call is, so it does not replace $R_1$. Second, the share of cancers covered is
-0.90--0.94 in six of the seven runs, below the 0.95 target (run G reaches 0.954). The runs share one calibration set and one test
+0.90--0.94 in six of the eight runs, below the 0.95 target (runs G and H reach 0.954 and
+0.987). The runs share one calibration set and one test
 set, so this is one draw of the data repeated rather than independent failures: with
 182 calibration and 152 test cancers, a shortfall of this size on a single draw is plausible, and
 other random splits would be needed to tell chance from a systematic difference. The same caution
