@@ -30,7 +30,7 @@ within the variation seen between repeated runs (Section~\ref{sec:results-llm}).
   \end{tabular}
 \end{table}
 
-\section{Does the language model learn from radiomics prompts?}
+\section{Learning from radiomics prompts}
 \label{sec:results-llm}
 
 Yes, to a moderate degree. On the official split, with eight v1 features, Qwen2.5-1.5B reached
@@ -245,7 +245,8 @@ Run E comes closest. Its 78 lowest-scored calibration nodules contain one cancer
 below the 5\% target, but 78 nodules are not enough evidence: with one cancer, 93 are needed. The
 auto-malignant side fails in the same way. Split conformal prediction is not a way out: on the
 official test set, the automatic benign calls of softmax-based split conformal prediction
-contained 23\% cancers. A coverage guarantee does not bound the clinical error rate.
+contained 23\% cancers, and on the pooled split 10--20\% (Section~\ref{sec:results-splitcp}). A
+coverage guarantee does not bound the clinical error rate.
 
 \subsection{Exploratory: a miss-rate guarantee}
 
@@ -276,3 +277,48 @@ allowed to fail on some test sets, and the test set has only 152 cancers, so one
 not a contradiction; but it shows how variable a single run is. On the official split the same
 rule behaved worse under the shift: at 10\%, 15.3\% of the official-test cancers were missed.
 This analysis was not planned in advance and is reported as exploratory.
+
+\subsection{Split conformal prediction on the pooled split}
+\label{sec:results-splitcp}
+
+Classical split conformal prediction (Section~\ref{sec:methods-splitcp}) gives what it promises on
+the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.90--0.92 in all six runs, and
+with $\alpha = 0.05$ it is 0.94--0.95. Marginal coverage, however, is carried by the benign
+majority: at $\alpha = 0.10$ only 70--86\% of the test cancers have ``malignant'' in their set.
+The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}).
+
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{Mondrian split conformal prediction on the pooled test set ($\alpha = 0.10$ benign,
+           $0.05$ malignant; thresholds from calibration). Auto-benign and auto-malignant are
+           the single-label sets; the rest is referred.}
+  \label{tab:results-splitcp}
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    run & \multicolumn{1}{p{1.6cm}}{\raggedleft cancers covered}
+        & \multicolumn{1}{p{1.3cm}}{\raggedleft auto-benign}
+        & \multicolumn{1}{p{1.7cm}}{\raggedleft cancers in auto-benign}
+        & \multicolumn{1}{p{1.5cm}}{\raggedleft auto-malignant}
+        & \multicolumn{1}{p{1.7cm}}{\raggedleft benign in auto-malignant}
+        & referred \\
+    \midrule
+    A & 0.901 & 22.8\% & 15.0\% & 19.6\% & 30.2\% & 57.5\% \\
+    B & 0.914 & 17.1\% & 17.3\% & 17.8\% & 34.6\% & 65.1\% \\
+    C & 0.941 & 18.7\% & 11.0\% & 16.4\% & 41.7\% & 64.8\% \\
+    D & 0.908 & 21.7\% & 14.7\% & 17.4\% & 30.3\% & 61.0\% \\
+    E & 0.934 & 22.8\% & 10.0\% & 16.7\% & 27.4\% & 60.5\% \\
+    F & 0.928 & 18.5\% & 13.6\% & 15.8\% & 39.1\% & 65.8\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+About a fifth of the nodules receive the single label ``benign'', and roughly 60\% are referred.
+Two caveats follow from the table. First, the cancers among the auto-benign calls make up 10--17\%
+of that group: the guarantee limits how many cancers are missed overall, not how safe a single
+benign call is, so it does not replace $R_1$. Second, the share of cancers covered is
+0.90--0.94 in every run, below the 0.95 target. The runs share one calibration set and one test
+set, so this is one draw of the data repeated six times rather than six independent failures: with
+182 calibration and 152 test cancers, a shortfall of this size on a single draw is plausible, and
+other random splits would be needed to tell chance from a systematic difference. The same caution
+applies to the miss-rate variant, whose test miss rates on the same split reach 8.6\%.

@@ -22,7 +22,7 @@ biopsy, not a radiologist's reading of the image. The same authors note that the
 does not always agree with the risk suggested by the ultrasound appearance under
 TI-RADS~\citep{gong2022acl,tessler2017}.
 
-The dataset comes with an official split into a training-and-validation set (\emph{trainval})
+The dataset comes with an official split into a set for training and validation (\emph{trainval})
 and a test set, and images from the same patient appear in only one of the two
 (Table~\ref{tab:data-official}).
 
@@ -171,9 +171,10 @@ in \texttt{splits/pooled\_seed42.csv} and is used in all experiments from 8 Octo
 
 \begin{table}[ht]
   \centering
+  \small
   \caption{Pooled split.}
   \label{tab:data-pooled}
-  \begin{tabular}{lrrrl}
+  \begin{tabular}{lrrr>{\raggedright\arraybackslash}p{4.2cm}}
     \toprule
     split & images & malignant & from official test & used for \\
     \midrule

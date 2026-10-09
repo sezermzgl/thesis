@@ -297,5 +297,22 @@ class TestSemanticPrompts(unittest.TestCase):
             ct.render_prompt(self.names, self.z, value_format="rich")
 
 
+class TestMondrianPerClass(unittest.TestCase):
+    def test_per_class_alpha_and_purity(self):
+        rng = np.random.default_rng(3)
+        y = rng.integers(0, 2, 400)
+        p = np.clip(0.3 + 0.4 * y + rng.normal(0, 0.2, 400), 0.01, 0.99)
+        scores = ct.softmax_scores(p)
+        q_same = ct.calibrate_mondrian(scores, y, alpha=0.10)
+        q_pair = ct.calibrate_mondrian(scores, y, alpha=(0.10, 0.05))
+        self.assertEqual(q_same[0], q_pair[0])                 # benign threshold unchanged
+        self.assertGreaterEqual(q_pair[1], q_same[1])          # stricter on cancers: wider "malignant"
+        rep = ct.set_report(ct.prediction_sets(scores, q_pair), y)
+        self.assertGreaterEqual(rep["coverage_malignant"], 0.95)
+        sets = ct.prediction_sets(scores, q_pair)
+        benign_only = sets[:, 0] & ~sets[:, 1]
+        self.assertAlmostEqual(rep["cancer_share_in_benign_only"], y[benign_only].mean())
+
+
 if __name__ == "__main__":
     unittest.main()

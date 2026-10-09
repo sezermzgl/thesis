@@ -149,4 +149,9 @@ def set_report(sets: np.ndarray, y: np.ndarray) -> pd.Series:
         "both_labels_rate": (size == 2).mean(),
         "empty_rate": (size == 0).mean(),
         "non_singleton_rate": (size != 1).mean(),
+        # Single-label sets read as automatic decisions; how clean they are is what R1/R2 bound.
+        "benign_only_rate": (benign_only := sets[:, 0] & ~sets[:, 1]).mean(),
+        "cancer_share_in_benign_only": y[benign_only].mean() if benign_only.any() else np.nan,
+        "malignant_only_rate": (malignant_only := sets[:, 1] & ~sets[:, 0]).mean(),
+        "benign_share_in_malignant_only": (1 - y[malignant_only]).mean() if malignant_only.any() else np.nan,
     })

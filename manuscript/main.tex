@@ -1,11 +1,14 @@
 % Master's thesis (work-in-progress draft). Compile with pdfLaTeX + BibTeX, e.g. on Overleaf.
-\documentclass[a4paper,twoside,binding=0.6cm,english]{sapthesis}
+% One-sided layout for the digital draft: no blank pages before chapters and the same margins on
+% every page. For a printed copy, use twoside,binding=0.6cm.
+\documentclass[a4paper,oneside,english]{sapthesis}
 
 \usepackage[english]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{microtype}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage{tabularx}
 \usepackage{graphicx}
 \usepackage{siunitx}
 \usepackage[numbers,sort&compress]{natbib}

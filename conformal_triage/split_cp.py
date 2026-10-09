@@ -35,9 +35,15 @@ def calibrate_marginal(scores: np.ndarray, y: np.ndarray, alpha: float) -> np.nd
     return np.array([q, q])
 
 
-def calibrate_mondrian(scores: np.ndarray, y: np.ndarray, alpha: float) -> np.ndarray:
-    """One threshold per label, each from that label's calibration nodules only."""
-    return np.array([conformal_quantile(scores[y == c, c], alpha) for c in (0, 1)])
+def calibrate_mondrian(scores: np.ndarray, y: np.ndarray, alpha) -> np.ndarray:
+    """One threshold per label, each from that label's calibration nodules only.
+
+    `alpha` is one level for both labels or a pair (alpha_benign, alpha_malignant); e.g.
+    (0.10, 0.05) keeps "malignant" in the set for at least 95% of cancers, so at most 5% of
+    cancers end up with the single label "benign".
+    """
+    alphas = (alpha, alpha) if np.isscalar(alpha) else tuple(alpha)
+    return np.array([conformal_quantile(scores[y == c, c], alphas[c]) for c in (0, 1)])
 
 
 def prediction_sets(scores: np.ndarray, q_hat: np.ndarray) -> np.ndarray:

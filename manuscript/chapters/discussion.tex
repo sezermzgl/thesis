@@ -18,8 +18,9 @@ whether an auto-benign group can be certified at 5\%:
 
 The best language model (run E) has the purity in its lowest 78 nodules but not the size. XGBoost,
 with 2 to 11 cancers among its 78 lowest-scored nodules, is at best in the same position. So there are two levers: a model whose low-score tail is cleaner, and a
-larger calibration set. Lowering the requirement is a third, and the miss-rate variant shows that
-a guarantee of a different kind is already within reach.
+larger calibration set. Lowering the requirement is a third: the miss-rate variant and Mondrian
+split conformal prediction show that a guarantee of a different kind, on the share of cancers
+missed rather than on each benign call, is already within reach for about a fifth of the nodules.
 
 The errors that block the guarantee are stable. Most wrong benign calls stay wrong under noise
 and under feature removal, so asking the model again does not reveal them. One possible reason is

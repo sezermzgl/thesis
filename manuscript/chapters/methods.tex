@@ -116,7 +116,7 @@ not been run yet (Section~\ref{sec:future-running}).
   \centering
   \caption{Value formats in the prompt.}
   \label{tab:methods-formats}
-  \begin{tabular}{lp{9.5cm}}
+  \begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X}
     \toprule
     format & sentence for one feature \\
     \midrule
@@ -128,7 +128,7 @@ not been run yet (Section~\ref{sec:future-running}).
                          typical, meaning a less round, more irregular outline'' \\
     semantic only (not run yet) & the band and phrase without numbers \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \emph{Decimal} and \emph{z-score} carry the same number; they differ only in saying what the
@@ -264,11 +264,20 @@ $t \in \{0, \dots, 4\}$ and $u \in \{10, \dots, 6\}$. Two kinds of perturbations
 \end{itemize}
 
 \subsection{Comparison with split conformal prediction}
+\label{sec:methods-splitcp}
 
-The same scores were also used with classical split conformal prediction~\citep{vovk2005}, in its
-marginal and class-conditional (Mondrian) forms at $\alpha = 0.10$. A prediction set with one label
-counts as an automatic decision. Split conformal prediction guarantees that the true label is in
-the set 90\% of the time, which is not the same as bounding $R_1$ and $R_2$.
+The same scores were also used with classical split conformal prediction~\citep{vovk2005}. The
+nonconformity of a label is one minus its predicted probability, and a label enters the prediction
+set when its nonconformity is below a threshold calibrated so that the true label is in the set
+for at least $1-\alpha$ of the nodules. A set with one label counts as an automatic decision; a set
+with both labels sends the nodule to a clinician. In the \emph{marginal} form one threshold serves
+both labels; in the class-conditional (\emph{Mondrian}) form each label is calibrated on its own
+nodules, so the guarantee holds for benign and malignant nodules separately. On the official split
+both forms were run at $\alpha = 0.10$. On the pooled split the marginal form was run at
+$\alpha = 0.10$ and $0.05$, and the Mondrian form with $\alpha = 0.10$ for benign and $0.05$ for
+malignant nodules: then at most about 5\% of cancers receive the single label ``benign'', a
+guarantee on missed cancers like the miss-rate variant below. Neither form bounds the share of
+cancers \emph{among} the single-label benign sets, which is what $R_1$ requires.
 
 \subsection{Exploratory miss-rate variant}
 \label{sec:methods-miss}

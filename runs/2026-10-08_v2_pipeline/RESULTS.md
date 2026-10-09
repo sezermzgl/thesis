@@ -52,6 +52,25 @@ Findings:
 - **LTT certifies nothing in any run.** Best tail: run E, lowest 15% of calibration with 1 cancer out of 78; at threshold 0.20, 90 nodules with 3 cancers (1 error would need ≥ 93 nodules, 3 errors ≥ 153).
 - **Exploratory miss-rate rule** (cancers sent to auto-benign ≤ 5%): the test miss rate ranges from 2.6% to 8.6% across runs (run D: 8.6% at t = 0.16), so a single run can exceed the target.
 
+## Split conformal prediction (computed afterwards from the saved probabilities)
+
+Score 1 − P(label); thresholds from calibration, applied to test. Single-label sets are automatic decisions, two-label sets are referred. Full table (marginal α 0.10 and 0.05, Mondrian): `split_cp_test.csv`. The notebook computes the same table in cell C12 for new runs.
+
+Mondrian, α = 0.10 for benign and 0.05 for malignant nodules (at most ~5% of cancers get the single label "benign"):
+
+| run | cancers covered | auto-benign | cancers in auto-benign | auto-malignant | benign in auto-malignant | referred |
+|---|---|---|---|---|---|---|
+| A | 0.901 | 22.8% | 15.0% | 19.6% | 30.2% | 57.5% |
+| B | 0.914 | 17.1% | 17.3% | 17.8% | 34.6% | 65.1% |
+| C | 0.941 | 18.7% | 11.0% | 16.4% | 41.7% | 64.8% |
+| D | 0.908 | 21.7% | 14.7% | 17.4% | 30.3% | 61.0% |
+| E | 0.934 | 22.8% | 10.0% | 16.7% | 27.4% | 60.5% |
+| F | 0.928 | 18.5% | 13.6% | 15.8% | 39.1% | 65.8% |
+
+- Marginal coverage holds (α = 0.10: 0.90–0.92; α = 0.05: 0.94–0.95), but it is carried by the benign majority: at α = 0.10 only 70–86% of cancers are covered.
+- Mondrian gives a guarantee on missed cancers (like the miss-rate rule) for about a fifth of the nodules, but the auto-benign sets still hold 10–17% cancers, so it does not meet R1 (≤ 5% cancers among auto-benign calls). This is why LTT certifies nothing while split CP "works".
+- Cancer coverage is 0.90–0.94 in all runs, below the 0.95 target. All runs share one calibration and one test draw, so this is a single realization, not six independent failures; other random splits are needed to separate chance from a systematic gap.
+
 Notes:
 
 - Run A predicted under the Trainer's bf16 autocast, so its probabilities are rounded (195 distinct values on 524 calibration nodules). Runs B–F predict in full precision (524 of 524).
