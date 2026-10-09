@@ -16,6 +16,8 @@ To try another backbone or setting, change the Configuration cell, restart the s
 
 `MAX_CORR` (default 0.95) removes near-duplicate features before mRMR, using the train split only. When two features have |r| above the threshold, the one less related to the label is dropped. mRMR alone let duplicates through: on v2 it selected both `PixelSurfaceRelative` and `MeshSurfaceRelative`, which are the same number in 2D. Set `MAX_CORR = None` to reproduce the earlier runs. Runs with the filter have `_corr95` in their name.
 
+`LORA_TARGETS` chooses where LoRA adapters go: `"qv"` (attention Q/V projections, all earlier runs) or `"all"` (every linear layer, as in Ra et al. 2025). Runs with a learning rate other than 2e-4 or with `"all"` get `_lr…` / `_lora-all` in their name. Gated models such as `meta-llama/Llama-2-7b-hf` need a Hugging Face token saved in Colab Secrets as `HF_TOKEN` (with notebook access on); the model cell logs in with it.
+
 P(malignant) is computed in full precision after training. Earlier bf16 runs on the L4 rounded the classifier logits to steps of 1/64 because the Trainer's autocast stayed on during prediction, so many nodules shared exactly the same score; for example, 524 calibration nodules had 195 distinct values. AUC barely changes, but threshold choices and tail counts are finer now.
 
 Open it in Colab:
