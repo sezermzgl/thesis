@@ -1,24 +1,278 @@
 \chapter{Experiments and results}
 \label{ch:results}
-% Organised by question; a timeline table first.
+
+The experiments were run in the order of Table~\ref{tab:results-timeline}, and each answered a
+question raised by the one before. This chapter is organised by question instead. All numbers
+come from single training runs with seed 42; differences below about 0.02 AUC between two runs are
+within the variation seen between repeated runs (Section~\ref{sec:results-llm}).
 
 \section{Timeline of experiments}
-% Table: date, run, question, record (runs/...).
+\label{sec:results-timeline}
 
-\section{Does the LLM learn from radiomics prompts?}
-% Official split (report §2, §11.1) and pooled split (runs/2026-10-08_v2_pipeline).
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{Experiments so far. Records are folders in \texttt{runs/} and sections of
+           \texttt{reports/conformal\_triage\_report.md}.}
+  \label{tab:results-timeline}
+  \begin{tabular}{lp{4.3cm}p{6.2cm}}
+    \toprule
+    date & experiment & outcome \\
+    \midrule
+    2 Oct  & Triage layer, run 1: mixed perturbations (official split, v1, 8 features, Qwen2.5-1.5B) & nothing certified; perturbations push the model off its training format \\
+    2 Oct  & Triage layer, run 2: format-preserving perturbations & nothing certified; votes no better than softmax; calibration and official test not exchangeable \\
+    7 Oct  & Error analysis and miss-rate variant (no new training) & errors are stable across queries; miss rate certifiable at 5\% for few nodules \\
+    8 Oct  & Backbone sweep on the official split (Qwen2.5-1.5B retrained, Qwen2.5-7B) & 7B not better \\
+    8 Oct  & Pooled split; image quality control; XGBoost & exchangeability restored; feature problems found \\
+    8--9 Oct & v2 features; LLM runs A--F on the pooled split & v2 helps (+0.05 AUC); format and size results \\
+    running & Llama-2-7B with the settings of Ra et al. & pending \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Does the language model learn from radiomics prompts?}
+\label{sec:results-llm}
+
+Yes, to a moderate degree. On the official split, with eight v1 features, Qwen2.5-1.5B reached
+test AUC 0.672 (validation 0.704, calibration 0.707), against 0.648--0.663 for a logistic
+regression, a random forest and a support vector machine. A retrained copy of the same model gave
+0.667 on test, and its scores agreed closely with the first model (Spearman correlation 0.97), so
+the result does not depend on one training run. Validation and calibration AUCs above the test AUC
+are consistent with the shift described in Section~\ref{sec:data-official}.
+
+Table~\ref{tab:results-llm} lists the runs on the pooled split. The best settings reach a test AUC
+of 0.75--0.76.
+
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{Language-model runs on the pooled split (16 features, 5 epochs, learning rate
+           $2 \times 10^{-4}$, LoRA on Q/V). Sensitivity at threshold 0.5 on test.}
+  \label{tab:results-llm}
+  \begin{tabular}{llllrrrrr}
+    \toprule
+    run & model & features & format & val & cal & test & sens. & minutes \\
+    \midrule
+    A & Qwen2.5-1.5B & v2            & decimal    & 0.753 & 0.757 & 0.750 & 0.66 & 26 \\
+    B & Qwen2.5-1.5B & v1, filtered  & decimal    & 0.709 & 0.705 & 0.699 & 0.67 & 27 \\
+    C & Qwen2.5-7B   & v2, filtered  & decimal    & 0.708 & 0.705 & 0.713 & 0.00 & 90 \\
+    D & Qwen2.5-1.5B & v2, filtered  & decimal    & 0.750 & 0.752 & 0.754 & 0.71 & 26 \\
+    E & Qwen2.5-1.5B & v2, filtered  & z-score    & 0.729 & 0.756 & 0.759 & 0.65 & 37 \\
+    F & Qwen2.5-1.5B & v2, filtered  & percentile & 0.709 & 0.713 & 0.734 & 0.65 & 37 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Training was unstable in several runs. In the early epochs validation sensitivity at 0.5 was
+sometimes close to 0 (all nodules called benign) and recovered later. Selecting the epoch by
+validation AUC hides this from the final AUC, but not from threshold-based measures such as
+sensitivity.
 
 \section{Do better features help?}
-% v1 vs v2: 0.699 -> 0.754 test AUC, paired bootstrap; near-duplicate filter.
+\label{sec:results-features}
+
+Yes, clearly. Runs B and D differ only in the feature set: the test AUC rises from 0.699 with v1
+to 0.754 with v2. The paired bootstrap interval for run A against run B is $[+0.013, +0.089]$ on
+test and $[+0.015, +0.090]$ on calibration, so the gain of about 0.05 is not a chance
+fluctuation.
+
+XGBoost shows the same picture (Table~\ref{tab:results-xgb}). With v1, adding features helps
+slowly; with v2, 16 features already give 0.78--0.81.
+
+\begin{table}[ht]
+  \centering
+  \caption{XGBoost test AUC on the pooled split, by number of mRMR features. ``Filtered'':
+           near-duplicates ($|r| > 0.95$) removed first; the last column gives the number of
+           features left.}
+  \label{tab:results-xgb}
+  \begin{tabular}{lrrrr}
+    \toprule
+    features & 8 & 16 & 32 & all \\
+    \midrule
+    v1           & 0.695 & 0.723 & 0.738 & 0.793 (67) \\
+    v1, filtered & 0.691 & 0.717 & 0.743 & 0.797 (44) \\
+    v2           & 0.723 & 0.780 & 0.803 & 0.800 (102) \\
+    v2, filtered & 0.723 & \textbf{0.805} & 0.796 & 0.800 (54) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The near-duplicate filter lifts XGBoost with 16 v2 features from 0.780 to 0.805, because the
+16 slots are no longer spent on copies. For the language model it makes no difference (runs A and
+D, within 0.005).
+
+On the official split, more features had seemed useless: classical models gained 0.05--0.10 AUC
+on validation by going from 8 to 67 features but not on the official test set. On the pooled split
+the gain carries over to the test set, so the earlier result was a consequence of the shift
+between the official sources, not of the features.
 
 \section{Does the number format matter?}
-% decimal vs z-score vs percentile.
+\label{sec:results-format}
+
+Saying what the number is does not matter; how extreme the number is does.
+
+\begin{table}[ht]
+  \centering
+  \caption{AUC differences between formats, 95\% paired bootstrap intervals.}
+  \label{tab:results-format}
+  \begin{tabular}{llrr}
+    \toprule
+    comparison & what changes & calibration & test \\
+    \midrule
+    E $-$ D & z-score wording      & $[-0.016, +0.022]$ & $[-0.017, +0.029]$ \\
+    F $-$ D & percentile values    & $[-0.075, -0.005]$ & $[-0.057, +0.022]$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{itemize}
+  \item The z-score wording (run E) and the bare decimal (run D) perform the same.
+  \item Percentiles (run F) lose about 0.04 AUC on validation and calibration; on test the
+        interval includes zero. A percentile maps a z-score of 2 and a z-score of 5 to nearly the
+        same value (98 and 100), so the model loses the information that a value is extreme.
+        The loss suggests that the model uses the magnitude of the numbers, not only their order.
+\end{itemize}
 
 \section{Does a larger backbone help?}
-% Qwen2.5-7B; Llama-2-7B replication (pending).
+\label{sec:results-size}
 
-\section{How does the LLM compare with XGBoost?}
+Not in the experiments so far, but the comparison is not conclusive.
+
+\begin{itemize}
+  \item On the official split, Qwen2.5-7B matched the 1.5B model: test AUC 0.669 with 8 features
+        and 0.666 with 16, against 0.667 for 1.5B.
+  \item On the pooled split, Qwen2.5-7B (run C) was worse than 1.5B (run D): 0.713 against 0.754,
+        paired interval $[-0.069, -0.004]$ on test.
+\end{itemize}
+
+The 7B training did not settle. Across the five epochs, validation sensitivity at threshold 0.5
+went 0.00, 0.01, 0.93, 0.04, 0.62; gradient norms reached 200; the best epoch by validation AUC
+was epoch 2. The selected model calls every test nodule benign at threshold 0.5 (sensitivity 0),
+although its ranking still has AUC 0.713. The learning rate of $2 \times 10^{-4}$, chosen for the
+1.5B model, is probably too high for 7B. ``Larger is worse'' is therefore confounded with ``larger
+was trained badly''. A Llama-2-7B run with the settings of Ra et al.\ (learning rate
+$10^{-4}$, LoRA on all linear layers) is running.
+
+\section{How does the language model compare with XGBoost?}
+\label{sec:results-xgb}
+
+XGBoost is better with the same features, by about 0.05 AUC:
+
+\begin{itemize}
+  \item pooled split, 16 v2 features after filtering: XGBoost 0.805, language model 0.754
+        (run D);
+  \item official split, 8 v1 features: XGBoost 0.696, language model 0.667; with 16 features
+        XGBoost reaches 0.709.
+\end{itemize}
+
+The language model also gains less from more features. On the official split, XGBoost improved
+from 8 to 16 features while the 7B language model did not (0.669 and 0.666).
 
 \section{Can Learn-then-Test certify automatic decisions?}
-% Nothing certified in any run; perturbation votes vs softmax; confidently wrong errors;
-% miss-rate variant and its behaviour under shift.
+\label{sec:results-ltt}
+
+No. In none of the runs, with any score, did LTT certify a single automatic decision at
+$\alpha_1 = 5\%$ or $\alpha_2 = 20\%$. This section explains why, starting with the perturbation
+votes of the original design.
+
+\subsection{Mixed perturbations push the model off its format}
+
+In run 1 (official split, validation nodules), shuffling the feature order alone changed 29\% of
+the answers. Paraphrased templates changed 47--48\% of the answers and were \emph{never}
+classified malignant, in any split. No nodule received more than 6 of 10 malignant votes, so the
+auto-malignant side was impossible by construction. The model also depended on feature position:
+shuffling changed only 10\% of the answers when the first feature stayed first, against 24--39\%
+otherwise. These perturbations measured the distance from the training format, not the
+uncertainty about the nodule.
+
+\subsection{Format-preserving votes are not better than softmax}
+
+With jitter and drop-one perturbations (run 2), the model stays in distribution: noise and dropping change
+5--12\% of the answers and the AUC of the perturbed queries stays within 0.02 of the base prompt.
+But the votes separate correct from incorrect predictions no better than the softmax probability
+(Table~\ref{tab:results-errsep}). Jitter votes are worse on calibration and test; drop votes are
+level with softmax.
+
+\begin{table}[ht]
+  \centering
+  \caption{AUC for separating correct from incorrect predictions (run 2, official split).}
+  \label{tab:results-errsep}
+  \begin{tabular}{lrrr}
+    \toprule
+    confidence score & validation & calibration & test \\
+    \midrule
+    softmax confidence          & 0.602 & 0.629 & 0.577 \\
+    jitter vote agreement (SD 0.2) & 0.560 & 0.579 & 0.533 \\
+    drop vote agreement         & 0.620 & 0.652 & 0.571 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{The model is consistently wrong}
+
+The design assumed that the model would be unstable on the nodules it gets wrong, so that their
+votes would split and they would be referred. The opposite happened. On calibration, 19.4\% of the
+nodules with 0 of 10 malignant votes are malignant, and 45.7\% of those with 10 of 10 are benign.
+Between 56\% and 69\% of the base prompt's errors are unanimous: all ten queries give the same
+wrong answer. Consistency measures how stable an answer is, not whether it is correct, and no vote
+threshold can separate these errors.
+
+\subsection{Nothing certified, on either split}
+
+Table~\ref{tab:results-ltt} shows the cleanest auto-benign group available in each setting. All
+are far from what LTT needs: 59 nodules without a cancer, or 93 with one
+(Section~\ref{sec:methods-triage}).
+
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{Cleanest auto-benign groups on calibration.}
+  \label{tab:results-ltt}
+  \begin{tabular}{lp{7.5cm}}
+    \toprule
+    setting & best auto-benign group \\
+    \midrule
+    official, jitter votes  & $v = 0$: 165 nodules, 19.4\% malignant \\
+    official, drop votes    & $v = 0$: 175 nodules, 20.0\% malignant \\
+    official, softmax       & not certified at any candidate \\
+    pooled, best LLM (run E) & lowest 15\%: 78 nodules, 1 malignant; $P \le 0.20$: 90 nodules, 3 malignant \\
+    pooled, XGBoost         & lowest 15\%: 78 nodules, 2--11 malignant depending on the feature set \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Run E comes closest. Its 78 lowest-scored calibration nodules contain one cancer (1.3\%), well
+below the 5\% target, but 78 nodules are not enough evidence: with one cancer, 93 are needed. The
+auto-malignant side fails in the same way. Split conformal prediction is not a way out: on the
+official test set, the automatic benign calls of softmax-based split conformal prediction
+contained 23\% cancers. A coverage guarantee does not bound the clinical error rate.
+
+\subsection{Exploratory: a miss-rate guarantee}
+
+Bounding the share of \emph{all} cancers sent to auto-benign (Section~\ref{sec:methods-miss}) is
+easier, because the evidence comes from all calibration cancers. At 5\% it is certified in every
+pooled run, for 4--19\% of the calibration nodules (Table~\ref{tab:results-miss}).
+
+\begin{table}[ht]
+  \centering
+  \caption{Miss-rate guarantee at 5\%, pooled split.}
+  \label{tab:results-miss}
+  \begin{tabular}{lrrrr}
+    \toprule
+    run & threshold & auto-benign, cal & auto-benign, test & cancers missed, test \\
+    \midrule
+    A & 0.16 & 14.3\% & 14.4\% & 5.3\% \\
+    B & 0.22 &  4.0\% &  5.7\% & 2.6\% \\
+    C & 0.09 & 10.3\% & 11.4\% & 2.6\% \\
+    D & 0.16 & 16.8\% & 18.0\% & 8.6\% \\
+    E & 0.21 & 19.1\% & 19.9\% & 5.9\% \\
+    F & 0.26 &  9.2\% & 11.0\% & 3.3\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The realised test miss rate ranges from 2.6\% to 8.6\%. A guarantee with $\delta = 0.05$ is
+allowed to fail on some test sets, and the test set has only 152 cancers, so one run above 5\% is
+not a contradiction; but it shows how variable a single run is. On the official split the same
+rule behaved worse under the shift: at 10\%, 15.3\% of the official-test cancers were missed.
+This analysis was not planned in advance and is reported as exploratory.

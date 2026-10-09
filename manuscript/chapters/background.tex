@@ -2,27 +2,83 @@
 \label{ch:background}
 
 \section{Thyroid nodules, TI-RADS and the reference standard}
-% Ultrasound signs (composition, echogenicity, shape, margin, echogenic foci); FNA cytology.
+\label{sec:bg-thyroid}
+
+Thyroid nodules are common and most of them are benign. Ultrasound is the first examination, and
+risk systems such as ACR TI-RADS~\citep{tessler2017} score a nodule from its appearance:
+composition, echogenicity, shape (in particular a taller-than-wide shape), margin and echogenic
+foci. The score and the size of the nodule decide whether a fine-needle aspiration (FNA) is
+recommended. The cytology of the aspirate, and surgery where needed, establish the diagnosis.
+
+FNA is the reference standard but it is invasive and uses clinical resources, and many aspirated
+nodules turn out benign. A system that could clear clearly benign nodules with a known error
+rate, and pass all doubtful ones to a clinician, would reduce this load without hiding its
+mistakes.
 
 \section{Radiomics}
-% Hand-crafted shape, intensity and texture features; PyRadiomics \citep{vangriethuysen2017};
-% feature selection with mRMR \citep{peng2005}.
+\label{sec:bg-radiomics}
+
+Radiomics describes a region of an image with many hand-crafted, quantitative features: shape
+(size, elongation, roundness, outline), first-order statistics of the intensities inside the
+region, and texture features computed from matrices that count how grey levels are arranged
+(co-occurrence, run lengths, size zones, dependences, neighbourhood differences). PyRadiomics is a
+widely used open implementation~\citep{vangriethuysen2017}. Texture features depend on how the
+intensities are discretised into grey levels, and shape features depend on the physical scale of
+the image; both matter for TN3K (Section~\ref{sec:methods-extraction}).
+
+Radiomics yields many correlated features for a modest number of cases, so a feature selection
+step is usual. Minimum-redundancy maximum-relevance (mRMR)~\citep{peng2005} adds features one by one,
+preferring those related to the label and unrelated to the features already chosen.
 
 \section{Language models for radiomics and tabular data}
-% Serialising feature names and values as text; LoRA and QLoRA fine-tuning
-% \citep{hu2022lora,dettmers2023qlora}.
+\label{sec:bg-llm}
+
+A row of tabular data can be written as text, ``feature name: value'', and given to a pre-trained
+language model. The idea is that the model may link feature names to knowledge acquired in
+pre-training, which a classical model that sees only a column of numbers cannot do. Fine-tuning
+all weights of a large model is expensive; low-rank adaptation (LoRA)~\citep{hu2022lora} trains
+small added matrices instead, and QLoRA~\citep{dettmers2023qlora} does so on a 4-bit copy of the
+frozen model, which makes 7B-parameter models trainable on a single mid-range GPU.
 
 \subsection{Ra et al.\ (2025)}
-% The pipeline adapted in this thesis \citep{ra2025}: setup, results, and critical reading
-% (BI-RADS labels instead of biopsy; feature-name censoring 0.700 vs 0.695 without a test;
-% baseline AUC equal to accuracy, likely from hard labels; head-only ablation as good as LoRA;
-% about 55 external test images; no confidence intervals; over 500 epochs).
+
+Ra et al.~\citep{ra2025} apply this idea to mammography. They extract 67 PyRadiomics features
+(shape, first-order, GLCM, GLSZM) from segmented masses, select 8 with mRMR, write them as
+sentences, and fine-tune Llama-2-7B with LoRA (rank 16) and a classification head. On VinDr-Mammo
+(235 test images) their model reaches AUC 0.700 against 0.605--0.727 for classical and tabular
+baselines; on INbreast, after retraining on half of the data, 0.862. They also report that
+replacing the feature names with generic labels lowers performance, and that their model can be
+extended to a new feature set without retraining from scratch. This thesis adapts their pipeline
+to thyroid ultrasound; a critical reading of their evaluation is given in
+Section~\ref{sec:disc-llm}.
 
 \section{Conformal prediction and risk control}
-% Split conformal prediction \citep{vovk2005}; selective classification with guaranteed risk
-% \citep{geifman2017}; Learn then Test \citep{angelopoulos2021ltt}; conformal risk control
-% \citep{angelopoulos2024crc}; exchangeability and covariate shift \citep{tibshirani2019}.
+\label{sec:bg-conformal}
+
+Conformal prediction~\citep{vovk2005} turns any model score into prediction sets with a
+finite-sample guarantee: the true label lies in the set with probability at least $1 - \alpha$,
+provided the calibration data and the new data are exchangeable. It makes no assumption on the
+model or the data distribution. With two classes, a set is either one label (a decision), both
+labels (``unsure'') or empty, and its guarantee concerns coverage, not the error rate among the
+decisions. Class-conditional (Mondrian) versions give the guarantee separately for each class.
+
+Selective classification lets a model abstain and bounds the error rate among the cases it does
+decide~\citep{geifman2017}. Learn then Test (LTT)~\citep{angelopoulos2021ltt} generalises this: any
+set of risks, written as expected losses, can be controlled by testing candidate parameters as
+hypotheses on calibration data, with a guarantee that holds with probability $1 - \delta$. Conformal
+risk control~\citep{angelopoulos2024crc} bounds the expected value of a monotone loss, such as the
+share of positives that are missed. All of these assume exchangeability. When the test data are
+shifted, weighted versions can restore the guarantee under covariate shift~\citep{tibshirani2019}.
 
 \section{Uncertainty from repeated queries}
-% Self-consistency, semantic entropy and sampling-based conformal prediction for LLMs
-% \citep{wang2023selfconsistency,kuhn2023semantic,su2024api,ashby2026,noorani2025}.
+\label{sec:bg-queries}
+
+For language models, a common uncertainty signal is agreement across repeated or perturbed
+queries: self-consistency over sampled answers~\citep{wang2023selfconsistency}, semantic entropy
+over answers with the same meaning~\citep{kuhn2023semantic}, and conformal prediction built on
+sampling frequencies when the model's probabilities are not accessible~\citep{su2024api}. A recent
+scoping review~\citep{ashby2026} finds that such sampling-based signals often outperform those
+based on the model's probabilities, mostly on general language benchmarks. Noorani et
+al.~\citep{noorani2025} study how many queries are needed for a conformal guarantee. Whether these
+findings carry over to a fine-tuned classifier reading radiomics prompts is one of the questions of
+this thesis.

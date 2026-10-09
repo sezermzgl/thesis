@@ -1,20 +1,57 @@
 \chapter{Introduction}
 \label{ch:introduction}
-% Written last, once the other chapters are fixed.
 
-\section{Clinical motivation}
-% Thyroid nodules are common; most are benign; fine-needle aspiration (FNA) is the reference
-% standard but costly and invasive. Ultrasound risk systems (TI-RADS) guide who gets an FNA.
+\section{Motivation}
 
-\section{Triage instead of full automation}
-% Automatic decisions only where the error rate can be guaranteed; all other nodules go to a
-% clinician. Source: design note "Conformal Triage for Thyroid Nodules" (30 Sep 2026).
+Most thyroid nodules are benign, but deciding which ones need a biopsy is a daily clinical task.
+Ultrasound risk systems guide this decision~\citep{tessler2017}, and fine-needle aspiration
+settles it. Machine-learning models can estimate the risk of malignancy from an ultrasound image,
+but a model that is right most of the time is of limited use if nobody knows which of its
+decisions can be trusted.
 
-\section{Aim and research questions}
-% RQ1: does a radiomics-prompted LLM classify TN3K nodules, and how does it compare with XGBoost?
-% RQ2: which pipeline choices matter (feature extraction, number format, model size)?
-% RQ3: can Learn-then-Test certify automatic decisions at the clinical risk levels?
+This thesis studies a model that decides only where it can guarantee its error rate. Nodules it
+calls benign must contain at most 5\% cancers, nodules it calls malignant at most 20\% benign ones,
+and every other nodule is referred to a clinician. The guarantee is obtained with Learn then
+Test~\citep{angelopoulos2021ltt}, a conformal risk-control method that needs no assumption on the
+model, only calibration data from the same distribution as future cases.
+
+The underlying classifier follows Ra et al.~\citep{ra2025}: radiomics features are extracted from
+the nodule, written as text, and read by a fine-tuned language model. The approach is attractive
+because a language model could use what feature names mean, and because its answers can be
+queried repeatedly to measure how stable they are.
+
+\section{Research questions}
+
+\begin{enumerate}
+  \item[RQ1] How well does a language model classify thyroid nodules from radiomics prompts, and
+             how does it compare with a classical model on the same features?
+  \item[RQ2] Which choices of the pipeline matter: the feature extraction, the way values are
+             written, and the size of the model?
+  \item[RQ3] Can Learn then Test certify automatic decisions at clinically meaningful error rates,
+             and does agreement across perturbed queries help?
+\end{enumerate}
 
 \section{Contributions so far}
 
+\begin{itemize}
+  \item An adaptation of the radiomics-to-language-model pipeline of Ra et al.\ to thyroid
+        ultrasound (TN3K), with a three-way triage layer calibrated by Learn then Test.
+  \item A data audit of TN3K: the official calibration and test sources are not exchangeable, and
+        the original feature extraction had three defects (few grey levels, size in pixels,
+        multi-component masks). A pooled split and a revised extraction address them.
+  \item Evidence that better features raise the language model's test AUC from 0.70 to 0.75, indications
+        that the model uses the magnitude of the values, and that it stays about 0.05 below XGBoost on
+        the same features.
+  \item A negative result with its explanation: no automatic decision could be certified, because
+        the model's errors are stable and its cleanest low-risk groups are too small for the
+        required evidence. Perturbation votes do not beat the softmax probability.
+\end{itemize}
+
 \section{Structure of the thesis}
+
+Chapter~\ref{ch:background} introduces the clinical and methodological background.
+Chapter~\ref{ch:data} describes the data, its quality issues and the splits.
+Chapter~\ref{ch:methods} presents the pipeline and the triage layer.
+Chapter~\ref{ch:results} reports the experiments, organised by question, and
+Chapter~\ref{ch:discussion} discusses them. Chapter~\ref{ch:future} lists the ongoing and planned
+work.

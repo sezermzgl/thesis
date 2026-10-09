@@ -2,36 +2,298 @@
 \label{ch:methods}
 
 \section{Overview of the pipeline}
-% Figure: mask -> radiomics -> selection -> prompt -> LLM -> score -> triage rule.
+\label{sec:methods-overview}
+
+The pipeline follows Ra et al.~\citep{ra2025}, adapted from mammography to thyroid ultrasound,
+and adds a triage layer on top. For each image:
+
+\begin{enumerate}
+  \item radiomics features are extracted from the image inside the nodule mask
+        (Section~\ref{sec:methods-extraction});
+  \item the features are standardised and a small subset is selected, using the training split
+        only (Section~\ref{sec:methods-selection});
+  \item the selected feature names and values are written as a short English text
+        (Section~\ref{sec:methods-prompts});
+  \item a pre-trained language model, fine-tuned for this task, reads the text and outputs a
+        probability of malignancy (Section~\ref{sec:methods-llm});
+  \item a three-way rule turns this score into \emph{auto-benign}, \emph{auto-malignant} or
+        \emph{refer to a clinician}, with thresholds calibrated so that the error rates of the
+        automatic decisions are statistically guaranteed (Section~\ref{sec:methods-triage}).
+\end{enumerate}
+
+An XGBoost classifier trained on the same features serves as the benchmark
+(Section~\ref{sec:methods-xgb}). All code is in the thesis repository: the triage layer and
+its unit tests in \texttt{conformal\_triage/} and \texttt{tests/}, the experiments in
+\texttt{experiments/}, and one record per experiment in \texttt{runs/}.
 
 \section{Radiomics feature extraction}
 \label{sec:methods-extraction}
+
+Features are extracted with PyRadiomics~\citep{vangriethuysen2017} in 2D mode, from the original
+image only (no wavelet or Laplacian-of-Gaussian filtered images, as in~\citep{ra2025}). Each image
+is converted to greyscale and rescaled to the range 0--255 by its own minimum and maximum, and
+each mask is binarised at 127 (Section~\ref{sec:data-tn3k}). Because no pixel spacing is
+available, the spacing is set to 1, so all sizes are in pixels.
+
 \subsection{First extraction (v1)}
-% 67 features: shape2D, first-order, GLCM, GLSZM; binWidth 25; shape in pixels.
+
+The first extraction used four feature families: shape (shape2D), first-order intensity
+statistics, the grey-level co-occurrence matrix (GLCM) and the grey-level size-zone matrix
+(GLSZM), giving 67 usable features. This is the set used by Ra et al. Texture features were
+computed with a fixed bin width of 25 grey values.
+
+The quality checks of Section~\ref{sec:data-qc} revealed three problems with this extraction:
+
+\begin{itemize}
+  \item with a bin width of 25, a nodule contains a median of about 9 grey levels (interquartile
+        range 7--10), which leaves little room for texture;
+  \item shape features in pixels partly measure the size of the image;
+  \item multi-component masks were used as they are, so a single shape feature could describe
+        several separate regions.
+\end{itemize}
+
 \subsection{Revised extraction (v2)}
-% 102 features, 7 families, bin count 64, size-relative shape features, largest component.
+
+The revised extraction changes four settings and keeps everything else:
+
+\begin{itemize}
+  \item \textbf{Fixed bin count.} Texture features use 64 grey levels per image instead of a fixed
+        bin width.
+  \item \textbf{Size relative to the image.} With image width $W$ and height $H$, lengths
+        (major and minor axis, maximum diameter, perimeter) are divided by $\sqrt{WH}$, areas by
+        $WH$, and the perimeter-to-surface ratio is multiplied by $\sqrt{WH}$. Shape features
+        without units (sphericity, elongation) are unchanged.
+  \item \textbf{Three more texture families:} the grey-level run-length matrix (GLRLM), the
+        grey-level dependence matrix (GLDM) and the neighbouring grey-tone difference matrix
+        (NGTDM).
+  \item \textbf{Largest component.} For multi-component masks only the largest region is kept,
+        a rule fixed before extraction so that each image describes one region.
+\end{itemize}
+
+This gives 102 features for all 3,493 images, with no extraction errors. As a consistency check,
+on single-component masks the features shared with v1 reproduce the v1 values exactly.
 
 \section{Preprocessing and feature selection}
-% Train-only median imputation and z-scoring; near-duplicate filter (|r| > 0.95); mRMR, 16 features.
+\label{sec:methods-selection}
+
+All steps below are fitted on the training split and then applied unchanged to the other splits:
+
+\begin{enumerate}
+  \item infinite values are set to missing and constant features are removed;
+  \item missing values are replaced by the training median, and every feature is standardised to
+        zero mean and unit variance (z-score);
+  \item \textbf{near-duplicate filter} (later experiments): of two features with absolute
+        Pearson correlation above 0.95, only the one more correlated with the label is kept;
+  \item \textbf{mRMR}~\citep{peng2005} (minimum redundancy, maximum relevance) ranks the remaining
+        features, and the first $k$ are used: $k = 8$ in the first experiments, as in Ra et al.,
+        and $k = 16$ later.
+\end{enumerate}
+
+The near-duplicate filter was added after mRMR selected two features that are the same number in
+2D (pixel surface and mesh surface, both relative to the image). The mRMR implementation penalises
+a candidate by its \emph{average} correlation with the features already chosen, so a copy of one
+chosen feature can still be picked when it is uncorrelated with the others. The selected features
+keep their mRMR order in the prompt.
 
 \section{From features to prompts}
-% Sentence template; value formats (decimal, z-score, percentile; rich and semantic-only planned).
+\label{sec:methods-prompts}
+
+Each nodule becomes one text: a fixed instruction followed by one sentence per selected feature.
+Feature names are made readable (\texttt{original\_shape2D\_Elongation} becomes
+\emph{Elongation}). With the format used in all main experiments (\emph{decimal}), a prompt begins:
+
+\begin{quote}\small
+Classify this thyroid nodule as benign or malignant based on the following standardized radiomic
+features. The 'Major Axis Length Relative' feature is measured at 0.335. The 'Elongation' feature
+is measured at $-$1.140. \dots
+\end{quote}
+
+The value is the z-score from Section~\ref{sec:methods-selection}, written with three decimals.
+Three formats were compared (Table~\ref{tab:methods-formats}); two more are implemented but have
+not been run yet (Section~\ref{sec:future-running}).
+
+\begin{table}[ht]
+  \centering
+  \caption{Value formats in the prompt.}
+  \label{tab:methods-formats}
+  \begin{tabular}{lp{9.5cm}}
+    \toprule
+    format & sentence for one feature \\
+    \midrule
+    decimal    & The '\dots' feature is measured at $-$1.140. \\
+    z-score    & The '\dots' feature has a z-score of $-$1.14 relative to the training nodules. \\
+    percentile & The '\dots' feature is at percentile 12 of the training nodules. \\
+    \midrule
+    rich (not run yet) & z-score, percentile and a plain-language band, e.g.\ ``lower than
+                         typical, meaning a less round, more irregular outline'' \\
+    semantic only (not run yet) & the band and phrase without numbers \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\emph{Decimal} and \emph{z-score} carry the same number; they differ only in saying what the
+number is. \emph{Percentile} replaces the z-score by its rank among the training nodules, which
+removes the information on how extreme a value is. The phrases of the two planned formats
+describe what a feature measures, never which direction is malignant.
 
 \section{Language-model classifier}
-% Qwen2.5 1.5B/7B (and Llama-2-7B), sequence-classification head on the last token,
-% 4-bit QLoRA, LoRA rank 16, class-weighted cross-entropy, 5 epochs, best epoch by validation AUC.
+\label{sec:methods-llm}
+
+\paragraph{Architecture.} The language model is used as a classifier, not as a text generator. A
+linear classification head with two outputs is placed on the hidden state of the last token and
+initialised at random; the probability of malignancy is the softmax of its two outputs. Ra et al.\
+also train a classification head, with a binary cross-entropy loss, and compare it with training
+the head alone.
+
+\paragraph{Fine-tuning.} The pre-trained weights are loaded in 4-bit precision (NF4 with double
+quantisation) and kept frozen; only low-rank adapters (LoRA) and the classification head are
+trained (QLoRA~\citep{hu2022lora,dettmers2023qlora}). Table~\ref{tab:methods-llm} lists the
+settings.
+
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{Fine-tuning settings, with those reported by Ra et al.~\citep{ra2025}.}
+  \label{tab:methods-llm}
+  \begin{tabular}{lp{6.2cm}p{3.6cm}}
+    \toprule
+    setting & this work & Ra et al. \\
+    \midrule
+    backbone        & Qwen2.5-1.5B~\citep{qwen2024}; also Qwen2.5-7B and Llama-2-7B & Llama-2-7B~\citep{touvron2023llama2} \\
+    weights         & 4-bit, frozen & not stated \\
+    LoRA            & rank 16, $\alpha = 32$, dropout 0.05 & rank 16 \\
+    LoRA placement  & attention Q and V (all linear layers in one run) & all layers \\
+    loss            & class-weighted cross-entropy & binary cross-entropy \\
+    optimiser       & AdamW, learning rate $2 \times 10^{-4}$, cosine schedule, 5\% warm-up & AdamW, $10^{-4}$, cosine schedule \\
+    batch           & 8 $\times$ 2 accumulation steps (7B: 4 $\times$ 4) & not stated \\
+    epochs          & 5 & over 500 \\
+    model selection & epoch with the best validation AUC & best on validation \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Class weights are $n / (2 n_c)$ for a class with $n_c$ of the $n$ training nodules, so that
+errors on the less frequent malignant class cost more. The maximum prompt length is checked
+before training so that no prompt is truncated.
+
+\paragraph{Hardware and precision.} The first models were trained on a free Colab T4 GPU in
+16-bit floating point (fp16), the later ones on an L4 GPU in bfloat16. Probabilities are computed
+in full precision after training. Earlier runs predicted in bfloat16, which rounded the scores so
+that many nodules shared the same value (195 distinct values among 524 calibration nodules); this
+barely changes the AUC but coarsens the thresholds of the triage layer.
 
 \section{Classical benchmark}
-% XGBoost with fixed hyperparameters on the same features \citep{chen2016xgboost}.
+\label{sec:methods-xgb}
+
+XGBoost~\citep{chen2016xgboost} is trained on the same split, with the same preprocessing and the
+same mRMR order, using 8, 16, 32 or all features. Its settings were fixed and not tuned: 300 trees
+of depth 3, learning rate 0.05, and class weighting. The first experiments also used logistic
+regression, a random forest and a support vector machine. XGBoost is a benchmark only; the
+language model remains the model of interest.
 
 \section{Conformal triage layer}
 \label{sec:methods-triage}
+
 \subsection{Three-way decision rule}
-\subsection{Risk definitions and Learn-then-Test calibration}
-% R1 cancers among auto-benign <= 5%, R2 benign among auto-malignant <= 20%, delta = 0.05.
+
+Let $s(x)$ be a score where higher means more likely malignant. With two thresholds $t < u$:
+\[
+  \text{decision}(x) =
+  \begin{cases}
+    \text{auto-benign}    & s(x) \le t, \\
+    \text{auto-malignant} & s(x) \ge u, \\
+    \text{refer}          & t < s(x) < u.
+  \end{cases}
+\]
+A referred nodule follows the usual clinical path (radiologist review or biopsy). The model is not
+changed by this layer; only $t$ and $u$ are chosen, on the calibration split.
+
+\subsection{Risks and Learn-then-Test calibration}
+
+Two clinical risks are controlled:
+
+\begin{itemize}
+  \item $R_1$: the share of malignant nodules among the auto-benign ones is at most
+        $\alpha_1 = 5\%$ (cancers wrongly cleared);
+  \item $R_2$: the share of benign nodules among the auto-malignant ones is at most
+        $\alpha_2 = 20\%$ (unneeded biopsies or treatment).
+\end{itemize}
+
+The thresholds are chosen with Learn then Test (LTT)~\citep{angelopoulos2021ltt}, which turns
+threshold selection into a sequence of hypothesis tests. For a candidate $t$, let $n$ be the
+number of calibration nodules with $s \le t$ and $k$ the number of malignant ones among them. The
+null hypothesis ``the true risk exceeds $\alpha_1$'' is tested with the binomial p-value
+\[
+  p(t) = P\big(\mathrm{Bin}(n, \alpha_1) \le k\big).
+\]
+Candidates are fixed in advance and tested from the safest to the most permissive. Testing stops
+at the first $p(t) > \delta$, and the last certified candidate is kept (fixed-sequence testing,
+which needs no multiplicity correction). $u$ is chosen the same way with $\alpha_2$. With
+$\delta = 0.05$ for each risk, both guarantees hold together with probability at least
+$1 - 2\delta = 0.90$ over the draw of the calibration set, provided calibration and future nodules
+are exchangeable (Section~\ref{sec:data-official}). If no candidate is certified, that side of the
+rule makes no automatic decisions.
+
+The test requires a group that is both large and clean. With $\alpha_1 = \delta = 0.05$, an
+auto-benign group needs at least 59 nodules with no cancer, 93 nodules with one cancer and 153
+nodules with three cancers to be certified.
+
+For the softmax probability the candidates are $t \in \{0.05, 0.10, \dots, 0.45\}$ and
+$u \in \{0.95, 0.90, \dots, 0.55\}$.
+
 \subsection{Uncertainty scores}
-% Softmax probability; perturbation votes (run 1 mixed perturbations, run 2 jitter and drop-one).
+\label{sec:methods-scores}
+
+\paragraph{Softmax probability.} The model's probability of malignancy for the unchanged prompt.
+
+\paragraph{Perturbation votes.} Following the consistency-based uncertainty literature for
+language models~\citep{ashby2026,noorani2025}, the original design of this work used an
+agreement signal: the same nodule is presented to the unchanged model $m$ times in slightly
+different ways, and the score is the number of queries $v$ answered malignant (probability
+$\ge 0.5$). The first query is always the exact training prompt. The candidates for $m = 10$ are
+$t \in \{0, \dots, 4\}$ and $u \in \{10, \dots, 6\}$. Two kinds of perturbations were used:
+
+\begin{itemize}
+  \item \textbf{Run 1 (mixed):} each query shuffled the feature order, dropped one feature with
+        probability 0.5 and used one of three sentence templates.
+  \item \textbf{Run 2 (format-preserving):} after run 1 showed that the model reacts to the format
+        rather than to the content (Section~\ref{sec:results-ltt}), the template and order were
+        kept. \emph{Jitter votes} add Gaussian noise to every standardised value (9 queries per
+        noise level, standard deviation 0.05, 0.1 or 0.2, the level chosen on validation by a
+        rule fixed in advance). \emph{Drop votes} remove one feature at a time (8 queries).
+\end{itemize}
+
+\subsection{Comparison with split conformal prediction}
+
+The same scores were also used with classical split conformal prediction~\citep{vovk2005}, in its
+marginal and class-conditional (Mondrian) forms at $\alpha = 0.10$. A prediction set with one label
+counts as an automatic decision. Split conformal prediction guarantees that the true label is in
+the set 90\% of the time, which is not the same as bounding $R_1$ and $R_2$.
+
 \subsection{Exploratory miss-rate variant}
+\label{sec:methods-miss}
+
+$R_1$ is a statement about each auto-benign decision. A weaker, programme-level alternative bounds
+the \emph{miss rate}: the share of all cancers sent to auto-benign, as in conformal risk
+control~\citep{angelopoulos2024crc}. The same binomial test is used with $n$ equal to the number of
+calibration cancers, on the grid $t \in \{0.01, 0.02, \dots, 0.50\}$, at 5\% and 10\%. This
+variant was added after the main results and is reported as exploratory.
 
 \section{Evaluation protocol}
-% AUC, paired bootstrap intervals, two-sample exchangeability test, what each split is used for.
+\label{sec:methods-eval}
+
+\begin{itemize}
+  \item \textbf{Roles of the splits.} Training fits the model and all preprocessing; validation
+        selects the epoch and the noise level; calibration is used only for the conformal
+        thresholds; test only for reporting, with the rules locked.
+  \item \textbf{Classification.} The main measure is the area under the ROC curve (AUC), computed
+        from the predicted probability. Accuracy and sensitivity use the 0.5 threshold.
+  \item \textbf{Comparing two runs.} Differences in AUC are given with a 95\% paired bootstrap
+        interval: the same nodules are resampled 2,000 times and the AUC difference of the two
+        runs is recomputed on each resample.
+  \item \textbf{Separating errors.} How well a confidence score separates correct from incorrect
+        predictions is measured by the AUC of that score for the event ``prediction correct''.
+  \item \textbf{Exchangeability.} The classifier two-sample test of Section~\ref{sec:data-official}.
+\end{itemize}
+
+Unless stated otherwise, every run uses seed 42 and a single training run per setting.

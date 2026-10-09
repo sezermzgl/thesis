@@ -1,14 +1,48 @@
 \chapter{Ongoing and future work}
 \label{ch:future}
 
-\section{Running experiments}
-% Llama-2-7B with the settings of Ra et al.; rich and semantic-only prompt formats.
+\section{Running and prepared experiments}
+\label{sec:future-running}
+
+\begin{itemize}
+  \item \textbf{Llama-2-7B with the settings of Ra et al.} Learning rate $10^{-4}$, LoRA on all
+        linear layers, v2 features with the near-duplicate filter, decimal format, batch
+        $4 \times 4$. The run is in progress. It tests whether the backbone and settings of the
+        original paper close the gap to XGBoost.
+  \item \textbf{A fair 7B run.} If needed, Qwen2.5-7B with a lower learning rate
+        ($5 \times 10^{-5}$), so that model size is no longer confounded with unstable training.
+  \item \textbf{Plain-language formats.} The \emph{rich} format adds to each value its percentile and
+        a phrase on what the value means (for example ``lower than typical, meaning a less round,
+        more irregular outline''); \emph{semantic only} gives the phrase without numbers. Both are
+        implemented. If the model gains from them, it uses the meaning of the features, which is
+        the central claim of the approach.
+\end{itemize}
 
 \section{Clinically motivated features}
-% Taller-than-wide ratio, relative echogenicity, bright-spot count.
+
+Three features follow TI-RADS signs that the current radiomics features miss. All can be computed
+from the image and the mask:
+
+\begin{itemize}
+  \item the taller-than-wide ratio of the nodule;
+  \item relative echogenicity: the brightness of the nodule against a ring of surrounding tissue,
+        measured on the image before per-image rescaling;
+  \item the number of small bright spots inside the nodule, as an approximate measure of
+        microcalcifications.
+\end{itemize}
+
+They will first be tested with XGBoost. If they help, they will be added to the prompts both as
+numbers and as plain-language statements. They may also give the strongest answer to the question
+of what a language model adds: such features have a clinical name and meaning that a language
+model may already know.
 
 \section{Robustness}
-% Repeated seeds; fair 7B learning rate.
+
+The best setting will be repeated with two or three seeds and reported as a mean with a range,
+so that differences between settings can be judged against the variation between runs.
 
 \section{A second dataset}
-% ThyroidXL as a separate dataset (not merged with TN3K).
+
+ThyroidXL will be used as a separate dataset, not merged with TN3K. It can show whether the
+results hold on other data and, with more calibration nodules, whether the triage guarantee
+becomes reachable.

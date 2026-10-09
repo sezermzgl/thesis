@@ -2,12 +2,87 @@
 \label{ch:discussion}
 
 \section{Why no decision is certified}
-% Base-model ranking quality vs calibration size; stable errors; possible label/appearance conflict.
+\label{sec:disc-ltt}
+
+The triage layer works as designed, and its statistical code reproduces the worked example of the
+design exactly. What it lacks is a score that ranks the nodules well enough. Two quantities decide
+whether an auto-benign group can be certified at 5\%:
+
+\begin{itemize}
+  \item \textbf{Purity:} how few cancers fall among the lowest-scored nodules. This depends on the
+        model.
+  \item \textbf{Size:} how many nodules that group contains in the calibration set. With 524
+        calibration nodules, a 15\% tail has 78 nodules; LTT needs 93 if one of them is
+        malignant and 59 if none is.
+\end{itemize}
+
+The best language model (run E) has the purity in its lowest 78 nodules but not the size. XGBoost,
+with 2 to 11 cancers among its 78 lowest-scored nodules, is at best in the same position. So there are two levers: a model whose low-score tail is cleaner, and a
+larger calibration set. Lowering the requirement is a third, and the miss-rate variant shows that
+a guarantee of a different kind is already within reach.
+
+The errors that block the guarantee are stable. Most wrong benign calls stay wrong under noise
+and under feature removal, so asking the model again does not reveal them. One possible reason is
+in the labels: they come from biopsy, and the authors of the dataset report that some biopsy
+results disagree with the ultrasound appearance~\citep{gong2022acl}. A malignant nodule that looks
+benign on ultrasound cannot be recognised from image features alone, by any model. This is a
+hypothesis; it has not been tested here.
 
 \section{What the language model adds}
-% Gap to XGBoost; uses value magnitude; comparison with Ra et al.
+\label{sec:disc-llm}
+
+The language model learns from the prompts, and it improves when the features improve. It also
+appears to use the size of the numbers, not only their order (Section~\ref{sec:results-format}). But with the
+same features it stays about 0.05 AUC behind XGBoost, and so far nothing shows that it uses the
+\emph{names} of the features, which is the motivation of Ra et al.
+
+Ra et al.\ report that their language model beats all classical baselines. Several points of their
+evaluation make this comparison weaker than it looks:
+
+\begin{itemize}
+  \item \textbf{Feature names.} Replacing the names with generic labels lowers their internal test
+        AUC from 0.700 to 0.695 and their external test AUC from 0.862 to 0.849. These differences
+        are called significant, but no test or interval is given.
+  \item \textbf{AUC of the baselines.} For all seven scikit-learn baselines, the reported AUC is
+        within 0.004 of the accuracy (for example 0.631 and 0.631 for the random forest), while
+        for their own model and for TransTab the AUC is clearly higher than the accuracy (0.700
+        against 0.671). This pattern is expected if the baselines' AUC was computed from 0/1
+        predictions, which turns AUC into balanced accuracy. The comparison would then favour the
+        language model.
+  \item \textbf{Fine-tuning.} Training only the classification head of the frozen model gives an
+        AUC of 0.699, against 0.700 with LoRA; without mRMR, head-only training gives 0.710, the
+        highest AUC in their ablation table.
+  \item \textbf{Labels.} Their labels are BI-RADS categories (3 benign, 4--6 malignant), that is a
+        radiologist's assessment of the image, not a biopsy result.
+  \item \textbf{Size and uncertainty.} The internal test set has 235 images and the external one
+        about 55 after half of INbreast was used for retraining. No intervals are reported, and
+        the model was trained for over 500 epochs and selected on validation.
+\end{itemize}
+
+The results of this thesis are in line with a cautious reading of theirs: a language model can
+classify radiomics prompts at about the level of classical models, and a clear advantage remains
+to be shown. Two steps can test the claim directly: censoring the feature names, and giving the
+model plain-language meanings of the features (Chapter~\ref{ch:future}).
 
 \section{Limitations}
-% Single 2D image per nodule; ultrasound noise and devices; some TI-RADS signs not captured
-% (echogenic foci, margins, taller-than-wide); patient overlap in the pooled split; single seed;
-% single dataset.
+\label{sec:disc-limitations}
+
+\begin{itemize}
+  \item \textbf{One 2D image per nodule.} A nodule is a 3D structure seen in several planes and in
+        real time; one still image gives a partial view.
+  \item \textbf{Ultrasound images.} Brightness depends on the device, its settings and the
+        operator. Per-image rescaling removes part of this variation, and with it part of the
+        information on absolute echogenicity.
+  \item \textbf{Clinical signs not captured.} Several TI-RADS signs~\citep{tessler2017} are not
+        measured by the features: echogenic foci (microcalcifications), margin details, a
+        taller-than-wide shape in the transverse plane, and echogenicity relative to the
+        surrounding thyroid tissue.
+  \item \textbf{Patient overlap.} The pooled split is drawn at image level, so the absolute test
+        metrics are likely optimistic for new patients (Section~\ref{sec:data-patients}).
+  \item \textbf{Single runs.} Each setting was trained once, with one seed. Differences below
+        about 0.02 AUC are within seed-to-seed variation.
+  \item \textbf{Hyperparameters.} The learning rate was chosen for the 1.5B model and reused for
+        7B; XGBoost was not tuned.
+  \item \textbf{One dataset.} All results come from TN3K.
+  \item \textbf{Exploratory analyses.} The miss-rate variant was added after the main results.
+\end{itemize}
