@@ -5,11 +5,7 @@
 \label{sec:future-running}
 
 \begin{itemize}
-  \item \textbf{Llama-2-7B with the settings of Ra et al.} Learning rate $10^{-4}$, LoRA on all
-        linear layers, v2 features with the near-duplicate filter, decimal format, batch
-        $4 \times 4$. The run is in progress. It tests whether the backbone and settings of the
-        original paper close the gap to XGBoost.
-  \item \textbf{A fair 7B run.} If needed, Qwen2.5-7B with a lower learning rate
+  \item \textbf{A fair 7B run.} Qwen2.5-7B with a lower learning rate
         ($5 \times 10^{-5}$), so that model size is no longer confounded with unstable training.
   \item \textbf{Plain-language formats.} The \emph{rich} format adds to each value its percentile and
         a phrase on what the value means (for example ``lower than typical, meaning a less round,

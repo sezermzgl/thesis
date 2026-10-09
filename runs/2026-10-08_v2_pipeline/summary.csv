@@ -1,7 +1,8 @@
-run,model,feature_set,max_corr,value_format,minutes,validation_auc,calibration_auc,test_auc,miss5_t,miss5_test_miss_rate
-Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_corr95,Qwen/Qwen2.5-1.5B,v1,0.95,decimal,26.6,0.7085163239,0.7049514813,0.6993006993,0.22,0.0263157895
-Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2,Qwen/Qwen2.5-1.5B,v2,,decimal,26.1,0.7529917509,0.757101086,0.7501725248,0.16,0.0526315789
-Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_corr95,Qwen/Qwen2.5-1.5B,v2,0.95,decimal,26.4,0.7500871384,0.7522974102,0.7540025764,0.16,0.0855263158
-Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_percentile_corr95,Qwen/Qwen2.5-1.5B,v2,0.95,percentile,36.5,0.7086325084,0.7132896343,0.7339896945,0.26,0.0328947368
-Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_zscore_corr95,Qwen/Qwen2.5-1.5B,v2,0.95,zscore,36.9,0.7291739282,0.7558800848,0.7593623482,0.21,0.0592105263
-Qwen2.5-7B_f16_e5_s42_pooled_seed42_v2_corr95,Qwen/Qwen2.5-7B,v2,0.95,decimal,90.2,0.7083304287,0.7052246,0.7134017298,0.09,0.0263157895
+run,model,feature_set,max_corr,value_format,lr,lora,minutes,validation_auc,calibration_auc,test_auc,miss5_t,miss5_test_miss_rate
+Llama-2-7b-hf_f16_e5_s42_pooled_seed42_v2_corr95_lr1e-4_lora-all,meta-llama/Llama-2-7b-hf,v2,0.95,decimal,0.0001,all,182.4,0.7052863948,0.7094499068,0.731229297,0.17,0.0065789474
+Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_corr95,Qwen/Qwen2.5-1.5B,v1,0.95,decimal,,,26.6,0.7085163239,0.7049514813,0.6993006993,0.22,0.0263157895
+Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2,Qwen/Qwen2.5-1.5B,v2,,decimal,,,26.1,0.7529917509,0.757101086,0.7501725248,0.16,0.0526315789
+Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_corr95,Qwen/Qwen2.5-1.5B,v2,0.95,decimal,,,26.4,0.7500871384,0.7522974102,0.7540025764,0.16,0.0855263158
+Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_percentile_corr95,Qwen/Qwen2.5-1.5B,v2,0.95,percentile,,,36.5,0.7086325084,0.7132896343,0.7339896945,0.26,0.0328947368
+Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_zscore_corr95,Qwen/Qwen2.5-1.5B,v2,0.95,zscore,,,36.9,0.7291739282,0.7558800848,0.7593623482,0.21,0.0592105263
+Qwen2.5-7B_f16_e5_s42_pooled_seed42_v2_corr95,Qwen/Qwen2.5-7B,v2,0.95,decimal,,,90.2,0.7083304287,0.7052246,0.7134017298,0.09,0.0263157895

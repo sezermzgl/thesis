@@ -25,7 +25,7 @@ within the variation seen between repeated runs (Section~\ref{sec:results-llm}).
     8 Oct  & Backbone sweep on the official split (Qwen2.5-1.5B retrained, Qwen2.5-7B) & 7B not better \\
     8 Oct  & Pooled split; image quality control; XGBoost & exchangeability restored; feature problems found \\
     8--9 Oct & v2 features; LLM runs A--F on the pooled split & v2 helps (+0.05 AUC); format and size results \\
-    running & Llama-2-7B with the settings of Ra et al. & pending \\
+    9 Oct  & Llama-2-7B with the settings of Ra et al.\ (run G) & not better than Qwen2.5-1.5B \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -46,8 +46,10 @@ of 0.75--0.76.
 \begin{table}[ht]
   \centering
   \small
-  \caption{Language-model runs on the pooled split (16 features, 5 epochs, learning rate
-           $2 \times 10^{-4}$, LoRA on Q/V). Sensitivity at threshold 0.5 on test.}
+  \caption{Language-model runs on the pooled split (16 features, 5 epochs; learning rate
+           $2 \times 10^{-4}$ and LoRA on Q/V unless stated). Sensitivity at threshold 0.5 on
+           test. Run G uses the settings of Ra et al.: learning rate $10^{-4}$, LoRA on all
+           linear layers.}
   \label{tab:results-llm}
   \begin{tabular}{llllrrrrr}
     \toprule
@@ -59,6 +61,7 @@ of 0.75--0.76.
     D & Qwen2.5-1.5B & v2, filtered  & decimal    & 0.750 & 0.752 & 0.754 & 0.71 & 26 \\
     E & Qwen2.5-1.5B & v2, filtered  & z-score    & 0.729 & 0.756 & 0.759 & 0.65 & 37 \\
     F & Qwen2.5-1.5B & v2, filtered  & percentile & 0.709 & 0.713 & 0.734 & 0.65 & 37 \\
+    G & Llama-2-7B   & v2, filtered  & decimal    & 0.705 & 0.709 & 0.731 & 0.66 & 182 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -136,13 +139,18 @@ Saying what the number is does not matter; how extreme the number is does.
 \section{Does a larger backbone help?}
 \label{sec:results-size}
 
-Not in the experiments so far, but the comparison is not conclusive.
+Not in the experiments so far: neither a larger Qwen model nor the backbone and settings of
+Ra et al.\ beat Qwen2.5-1.5B.
 
 \begin{itemize}
   \item On the official split, Qwen2.5-7B matched the 1.5B model: test AUC 0.669 with 8 features
         and 0.666 with 16, against 0.667 for 1.5B.
   \item On the pooled split, Qwen2.5-7B (run C) was worse than 1.5B (run D): 0.713 against 0.754,
         paired interval $[-0.069, -0.004]$ on test.
+  \item With the backbone and settings of Ra et al.\ (run G: Llama-2-7B, learning rate
+        $10^{-4}$, LoRA on all linear layers), the test AUC is 0.731, again below run D. The
+        paired intervals against run D are $[-0.070, -0.016]$ on calibration and
+        $[-0.052, +0.007]$ on test; against Qwen2.5-7B (run C) they include zero.
 \end{itemize}
 
 The 7B training did not settle. Across the five epochs, validation sensitivity at threshold 0.5
@@ -150,8 +158,12 @@ went 0.00, 0.01, 0.93, 0.04, 0.62; gradient norms reached 200; the best epoch by
 was epoch 2. The selected model calls every test nodule benign at threshold 0.5 (sensitivity 0),
 although its ranking still has AUC 0.713. The learning rate of $2 \times 10^{-4}$, chosen for the
 1.5B model, is probably too high for 7B. ``Larger is worse'' is therefore confounded with ``larger
-was trained badly''. A Llama-2-7B run with the settings of Ra et al.\ (learning rate
-$10^{-4}$, LoRA on all linear layers) is running.
+was trained badly''. Run G trained more steadily at half the learning rate but also started
+badly: after epoch 2 it called every validation nodule benign (validation loss 1.21) before
+recovering to validation AUC 0.70--0.71 in epochs 4--5. It took 182 minutes on one L4 GPU,
+seven times as long as Qwen2.5-1.5B, for a lower AUC. A Qwen2.5-7B run at a lower learning rate
+would remove the remaining confound, but none of the evidence so far points to model size as the
+bottleneck.
 
 \section{How does the language model compare with XGBoost?}
 \label{sec:results-xgb}
@@ -268,11 +280,12 @@ pooled run, for 4--19\% of the calibration nodules (Table~\ref{tab:results-miss}
     D & 0.16 & 16.8\% & 18.0\% & 8.6\% \\
     E & 0.21 & 19.1\% & 19.9\% & 5.9\% \\
     F & 0.26 &  9.2\% & 11.0\% & 3.3\% \\
+    G & 0.17 &  6.9\% &  7.8\% & 0.7\% \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The realised test miss rate ranges from 2.6\% to 8.6\%. A guarantee with $\delta = 0.05$ is
+The realised test miss rate ranges from 0.7\% to 8.6\%. A guarantee with $\delta = 0.05$ is
 allowed to fail on some test sets, and the test set has only 152 cancers, so one run above 5\% is
 not a contradiction; but it shows how variable a single run is. On the official split the same
 rule behaved worse under the shift: at 10\%, 15.3\% of the official-test cancers were missed.
@@ -282,7 +295,7 @@ This analysis was not planned in advance and is reported as exploratory.
 \label{sec:results-splitcp}
 
 Classical split conformal prediction (Section~\ref{sec:methods-splitcp}) gives what it promises on
-the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.90--0.92 in all six runs, and
+the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.90--0.92 in all seven runs, and
 with $\alpha = 0.05$ it is 0.94--0.95. Marginal coverage, however, is carried by the benign
 majority: at $\alpha = 0.10$ only 70--86\% of the test cancers have ``malignant'' in their set.
 The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}).
@@ -309,16 +322,17 @@ The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}
     D & 0.908 & 21.7\% & 14.7\% & 17.4\% & 30.3\% & 61.0\% \\
     E & 0.934 & 22.8\% & 10.0\% & 16.7\% & 27.4\% & 60.5\% \\
     F & 0.928 & 18.5\% & 13.6\% & 15.8\% & 39.1\% & 65.8\% \\
+    G & 0.954 & 18.0\% &  8.9\% & 14.6\% & 35.9\% & 67.4\% \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 About a fifth of the nodules receive the single label ``benign'', and roughly 60\% are referred.
-Two caveats follow from the table. First, the cancers among the auto-benign calls make up 10--17\%
+Two caveats follow from the table. First, the cancers among the auto-benign calls make up 9--17\%
 of that group: the guarantee limits how many cancers are missed overall, not how safe a single
 benign call is, so it does not replace $R_1$. Second, the share of cancers covered is
-0.90--0.94 in every run, below the 0.95 target. The runs share one calibration set and one test
-set, so this is one draw of the data repeated six times rather than six independent failures: with
+0.90--0.94 in six of the seven runs, below the 0.95 target (run G reaches 0.954). The runs share one calibration set and one test
+set, so this is one draw of the data repeated rather than independent failures: with
 182 calibration and 152 test cancers, a shortfall of this size on a single draw is plausible, and
 other random splits would be needed to tell chance from a systematic difference. The same caution
 applies to the miss-rate variant, whose test miss rates on the same split reach 8.6\%.

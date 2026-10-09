@@ -33,6 +33,7 @@ No setting certifies the 5% auto-benign rule; the lowest 15% of calibration hold
 | D | Qwen2.5-1.5B | v2 | 0.95 | decimal | 0.750 | 0.752 | 0.754 | 26 |
 | E | Qwen2.5-1.5B | v2 | 0.95 | zscore | 0.729 | 0.756 | 0.759 | 37 |
 | F | Qwen2.5-1.5B | v2 | 0.95 | percentile | 0.709 | 0.713 | 0.734 | 37 |
+| G | Llama-2-7B, LR 1e-4, LoRA all layers (Ra et al. settings), batch 4 × 4, MAX_LENGTH 512 | v2 | 0.95 | decimal | 0.705 | 0.709 | 0.731 | 182 |
 
 Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC difference:
 
@@ -42,15 +43,18 @@ Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC 
 | C − A | model size (and filter) | [−0.083, −0.022] | [−0.069, −0.004] |
 | E − D | z-score wording | [−0.016, +0.022] | [−0.017, +0.029] |
 | F − D | percentile values | [−0.075, −0.005] | [−0.057, +0.022] |
+| G − D | Llama-2-7B with Ra et al. settings vs Qwen2.5-1.5B | [−0.070, −0.016] | [−0.052, +0.007] |
+| G − C | Llama-2-7B vs Qwen2.5-7B | [−0.014, +0.022] | [−0.002, +0.036] |
 
 Findings:
 
 - **v2 features help the LLM**: about +0.05 AUC over v1 on calibration and test (B vs D differ only in the feature set: 0.699 → 0.754 on test).
 - **Qwen2.5-7B is worse than 1.5B** with the same 16 features (C vs D). Its training did not settle: validation sensitivity at 0.5 swings 0.00 → 0.01 → 0.93 → 0.04 → 0.62, gradient norms reach 200, and the best epoch was epoch 2. LR 2e-4 is likely too high for 7B.
+- **Llama-2-7B with the settings of Ra et al. (G) is not better than Qwen2.5-1.5B** (test 0.731 vs 0.754; worse on validation and calibration) and about equal to Qwen2.5-7B. Its training also started badly (epoch 2: all validation nodules called benign, validation loss 1.21) and recovered to validation AUC 0.70–0.71; 182 minutes on one L4.
 - **The near-duplicate filter does not change the LLM** (A vs D, within ±0.005), although it lifts XGBoost with 16 v2 features from 0.780 to 0.805.
 - **Number format**: stating the reference (z-score) changes nothing; percentiles, which compress the tails, lose 0.04 on validation and calibration. The LLM uses the magnitude of the values.
 - **LTT certifies nothing in any run.** Best tail: run E, lowest 15% of calibration with 1 cancer out of 78; at threshold 0.20, 90 nodules with 3 cancers (1 error would need ≥ 93 nodules, 3 errors ≥ 153).
-- **Exploratory miss-rate rule** (cancers sent to auto-benign ≤ 5%): the test miss rate ranges from 2.6% to 8.6% across runs (run D: 8.6% at t = 0.16), so a single run can exceed the target.
+- **Exploratory miss-rate rule** (cancers sent to auto-benign ≤ 5%): the test miss rate ranges from 2.6% to 8.6% across runs (run D: 8.6% at t = 0.16), so a single run can exceed the target (run G: t = 0.17, test miss rate 0.7% with 7.8% automated).
 
 ## Split conformal prediction (computed afterwards from the saved probabilities)
 
@@ -66,13 +70,15 @@ Mondrian, α = 0.10 for benign and 0.05 for malignant nodules (at most ~5% of ca
 | D | 0.908 | 21.7% | 14.7% | 17.4% | 30.3% | 61.0% |
 | E | 0.934 | 22.8% | 10.0% | 16.7% | 27.4% | 60.5% |
 | F | 0.928 | 18.5% | 13.6% | 15.8% | 39.1% | 65.8% |
+| G | 0.954 | 18.0% | 8.9% | 14.6% | 35.9% | 67.4% |
 
 - Marginal coverage holds (α = 0.10: 0.90–0.92; α = 0.05: 0.94–0.95), but it is carried by the benign majority: at α = 0.10 only 70–86% of cancers are covered.
 - Mondrian gives a guarantee on missed cancers (like the miss-rate rule) for about a fifth of the nodules, but the auto-benign sets still hold 10–17% cancers, so it does not meet R1 (≤ 5% cancers among auto-benign calls). This is why LTT certifies nothing while split CP "works".
-- Cancer coverage is 0.90–0.94 in all runs, below the 0.95 target. All runs share one calibration and one test draw, so this is a single realization, not six independent failures; other random splits are needed to separate chance from a systematic gap.
+- Cancer coverage is 0.90–0.94 in runs A–F, below the 0.95 target (G: 0.954). All runs share one calibration and one test draw, so this is a single realization, not six independent failures; other random splits are needed to separate chance from a systematic gap.
 
 Notes:
 
+- The executed Llama notebook had a cell that printed the Hugging Face token; that output was removed before committing.
 - Run A predicted under the Trainer's bf16 autocast, so its probabilities are rounded (195 distinct values on 524 calibration nodules). Runs B–F predict in full precision (524 of 524).
 - Differences below about 0.02 AUC between single runs are within seed-to-seed variation (the two earlier 1.5B runs on the official split gave 0.672 and 0.667 on test).
 - XGBoost with the same 16 v2 features (0.805) stays about 0.05 above the best LLM run.
