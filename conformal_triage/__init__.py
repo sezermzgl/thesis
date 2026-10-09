@@ -1,5 +1,6 @@
 """Conformal triage layer (Part D) on top of the radiomics -> LLM classifier."""
 
+from .clinical import clinical_features
 from .evaluation import (feasibility_report, feature_dependence, perturbation_report,
                          set_report, sets_to_decisions, triage_report, two_sample_test)
 from .ltt import (BENIGN, MALIGNANT, REFER, TriageRule, binomial_pvalue, calibrate_triage,

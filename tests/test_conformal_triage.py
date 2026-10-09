@@ -314,5 +314,56 @@ class TestMondrianPerClass(unittest.TestCase):
         self.assertAlmostEqual(rep["cancer_share_in_benign_only"], y[benign_only].mean())
 
 
+class TestClinicalFeatures(unittest.TestCase):
+    @staticmethod
+    def scene(h_axis, w_axis, inside=60.0, outside=120.0, lobes=False):
+        yy, xx = np.mgrid[0:200, 0:200]
+        mask = ((yy - 100) / h_axis) ** 2 + ((xx - 100) / w_axis) ** 2 <= 1
+        if lobes:
+            mask &= ~(((yy - 100) ** 2 + (xx - (100 + w_axis)) ** 2) <= (0.6 * w_axis) ** 2)
+            mask &= ~(((yy - 100) ** 2 + (xx - (100 - w_axis)) ** 2) <= (0.6 * w_axis) ** 2)
+        rng = np.random.default_rng(0)
+        gray = np.where(mask, inside, outside) + rng.normal(0, 5, mask.shape)
+        return np.clip(gray, 0, 255), mask
+
+    def test_orientation(self):
+        tall = ct.clinical_features(*self.scene(50, 30))
+        wide = ct.clinical_features(*self.scene(30, 50))
+        self.assertGreater(tall["original_clinical_TallerThanWideRatio"], 1.4)
+        self.assertLess(wide["original_clinical_TallerThanWideRatio"], 0.7)
+
+    def test_echogenicity(self):
+        dark = ct.clinical_features(*self.scene(40, 40, inside=60, outside=120))
+        bright = ct.clinical_features(*self.scene(40, 40, inside=150, outside=120))
+        self.assertAlmostEqual(dark["original_clinical_EchogenicityRatio"], 0.5, delta=0.05)
+        self.assertGreater(bright["original_clinical_EchogenicityRatio"], 1.15)
+
+    def test_punctate_foci(self):
+        gray, mask = self.scene(40, 40)
+        base = ct.clinical_features(gray, mask)["original_clinical_PunctateFociDensity"]
+        for y, x in [(90, 90), (110, 105), (95, 112), (105, 88)]:
+            gray[y - 1:y + 2, x - 1:x + 2] = 250
+        with_foci = ct.clinical_features(gray, mask)["original_clinical_PunctateFociDensity"]
+        self.assertLess(base, 0.3)                 # speckle alone gives (almost) no foci
+        self.assertAlmostEqual(with_foci * mask.sum() / 1000, 4, delta=0.6)   # four 3x3 foci
+
+    def test_solidity_and_margin(self):
+        smooth = ct.clinical_features(*self.scene(40, 40))
+        lobed = ct.clinical_features(*self.scene(40, 40, lobes=True))
+        self.assertGreater(smooth["original_clinical_Solidity"], 0.97)
+        self.assertLess(lobed["original_clinical_Solidity"], smooth["original_clinical_Solidity"] - 0.03)
+        gray, mask = self.scene(40, 40)
+        from scipy import ndimage as ndi
+        blurred = ct.clinical_features(ndi.gaussian_filter(gray, 4), mask)
+        self.assertGreater(smooth["original_clinical_MarginSharpness"], blurred["original_clinical_MarginSharpness"])
+
+    def test_anechoic_fraction(self):
+        gray, mask = self.scene(40, 40, inside=110, outside=120)
+        self.assertLess(ct.clinical_features(gray, mask)["original_clinical_AnechoicFraction"], 0.01)
+        gray[(np.mgrid[0:200, 0:200][0] < 100) & mask] = 10      # upper half fluid-like
+        frac = ct.clinical_features(gray, mask)["original_clinical_AnechoicFraction"]
+        self.assertAlmostEqual(frac, 0.5, delta=0.06)
+
+
 if __name__ == "__main__":
     unittest.main()
