@@ -1,0 +1,28 @@
+\chapter{Background and related work}
+\label{ch:background}
+
+\section{Thyroid nodules, TI-RADS and the reference standard}
+% Ultrasound signs (composition, echogenicity, shape, margin, echogenic foci); FNA cytology.
+
+\section{Radiomics}
+% Hand-crafted shape, intensity and texture features; PyRadiomics \citep{vangriethuysen2017};
+% feature selection with mRMR \citep{peng2005}.
+
+\section{Language models for radiomics and tabular data}
+% Serialising feature names and values as text; LoRA and QLoRA fine-tuning
+% \citep{hu2022lora,dettmers2023qlora}.
+
+\subsection{Ra et al.\ (2025)}
+% The pipeline adapted in this thesis \citep{ra2025}: setup, results, and critical reading
+% (BI-RADS labels instead of biopsy; feature-name censoring 0.700 vs 0.695 without a test;
+% baseline AUC equal to accuracy, likely from hard labels; head-only ablation as good as LoRA;
+% about 55 external test images; no confidence intervals; over 500 epochs).
+
+\section{Conformal prediction and risk control}
+% Split conformal prediction \citep{vovk2005}; selective classification with guaranteed risk
+% \citep{geifman2017}; Learn then Test \citep{angelopoulos2021ltt}; conformal risk control
+% \citep{angelopoulos2024crc}; exchangeability and covariate shift \citep{tibshirani2019}.
+
+\section{Uncertainty from repeated queries}
+% Self-consistency, semantic entropy and sampling-based conformal prediction for LLMs
+% \citep{wang2023selfconsistency,kuhn2023semantic,su2024api,ashby2026,noorani2025}.

@@ -1,0 +1,57 @@
+% Master's thesis (work-in-progress draft). Compile with pdfLaTeX + BibTeX, e.g. on Overleaf.
+\documentclass[a4paper,11pt,twoside,binding=0.6cm,english]{sapthesis}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{siunitx}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{hyperref}
+\hypersetup{pdftitle={Conformal Triage for Thyroid Nodules with a Radiomics-Prompted Language Model},
+            pdfauthor={Sezer Mezgil}}
+
+% TODO: working title, to be fixed with the advisor.
+\title{Conformal Triage for Thyroid Nodules\\with a Radiomics-Prompted Language Model}
+\author{Sezer Mezgil}
+\IDnumber{2180600}
+\course{Laurea Magistrale in Data Science}
+\courseorganizer{Facoltà di Ingegneria dell'Informazione, Informatica e Statistica}
+\AcademicYear{2025/2026} % TODO: confirm the academic year of graduation
+\advisor{Prof. Pierpaolo Brutti}
+\authoremail{TODO@studenti.uniroma1.it} % TODO: institutional e-mail
+\copyyear{2026}
+\thesistype{Master's thesis}
+\versiondate{Draft, \today}
+
+\begin{document}
+
+\frontmatter
+\maketitle
+
+\begin{abstract}
+% TODO: written last, after the main chapters.
+\end{abstract}
+
+\tableofcontents
+
+\mainmatter
+\include{chapters/introduction}
+\include{chapters/background}
+\include{chapters/data}
+\include{chapters/methods}
+\include{chapters/results}
+\include{chapters/discussion}
+\include{chapters/future_work}
+
+\backmatter
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\bibname}
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

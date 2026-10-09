@@ -1,0 +1,22 @@
+\chapter{Data}
+\label{ch:data}
+
+\section{The TN3K dataset}
+% 3,493 ultrasound images from 2,421 patients, one nodule mask per image, benign/malignant label
+% from cytological biopsy \citep{gong2021tn3k,gong2022acl}. Official patient-disjoint split:
+% trainval 2,879, test 614.
+
+\section{Image and mask quality control}
+% Report §11.4: image sizes differ between the official sources; multi-component and
+% border-touching masks; about 9 grey levels inside a nodule with binWidth 25.
+
+\section{The official split is not exchangeable}
+% Report §5: two-sample AUC 0.63 between calibration and official test; image-size artefact;
+% sources differ beyond pixel scale (A5 check in runs/2026-10-08_v2_pipeline).
+
+\section{The pooled split}
+% splits/pooled_seed42.csv: stratified by label and source; train 2,095, validation 436,
+% calibration 524, test 438. Exchangeability check after re-splitting.
+
+\subsection{Patient-level independence}
+% Image-level split without patient IDs: limitation text agreed on 2026-10-09.

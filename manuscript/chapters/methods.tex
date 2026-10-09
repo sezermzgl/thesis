@@ -1,0 +1,35 @@
+\chapter{Methods}
+\label{ch:methods}
+
+\section{Overview of the pipeline}
+% Figure: mask -> radiomics -> selection -> prompt -> LLM -> score -> triage rule.
+
+\section{Radiomics feature extraction}
+\subsection{First extraction (v1)}
+% 67 features: shape2D, first-order, GLCM, GLSZM; binWidth 25; shape in pixels.
+\subsection{Revised extraction (v2)}
+% 102 features, 7 families, bin count 64, size-relative shape features, largest component.
+
+\section{Preprocessing and feature selection}
+% Train-only median imputation and z-scoring; near-duplicate filter (|r| > 0.95); mRMR, 16 features.
+
+\section{From features to prompts}
+% Sentence template; value formats (decimal, z-score, percentile; rich and semantic-only planned).
+
+\section{Language-model classifier}
+% Qwen2.5 1.5B/7B (and Llama-2-7B), sequence-classification head on the last token,
+% 4-bit QLoRA, LoRA rank 16, class-weighted cross-entropy, 5 epochs, best epoch by validation AUC.
+
+\section{Classical benchmark}
+% XGBoost with fixed hyperparameters on the same features \citep{chen2016xgboost}.
+
+\section{Conformal triage layer}
+\subsection{Three-way decision rule}
+\subsection{Risk definitions and Learn-then-Test calibration}
+% R1 cancers among auto-benign <= 5%, R2 benign among auto-malignant <= 20%, delta = 0.05.
+\subsection{Uncertainty scores}
+% Softmax probability; perturbation votes (run 1 mixed perturbations, run 2 jitter and drop-one).
+\subsection{Exploratory miss-rate variant}
+
+\section{Evaluation protocol}
+% AUC, paired bootstrap intervals, two-sample exchangeability test, what each split is used for.
