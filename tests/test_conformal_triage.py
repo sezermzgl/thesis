@@ -357,6 +357,14 @@ class TestClinicalFeatures(unittest.TestCase):
         blurred = ct.clinical_features(ndi.gaussian_filter(gray, 4), mask)
         self.assertGreater(smooth["original_clinical_MarginSharpness"], blurred["original_clinical_MarginSharpness"])
 
+    def test_solid_echogenicity_ignores_fluid(self):
+        gray, mask = self.scene(40, 40, inside=60, outside=120)
+        rows = np.mgrid[0:200, 0:200][0]
+        gray[(rows < 100) & mask] = 10                          # half the nodule is fluid
+        f = ct.clinical_features(gray, mask)
+        self.assertLess(f["original_clinical_EchogenicityRatio"], 0.35)          # pulled down by fluid
+        self.assertAlmostEqual(f["original_clinical_SolidEchogenicityRatio"], 0.5, delta=0.05)
+
     def test_anechoic_fraction(self):
         gray, mask = self.scene(40, 40, inside=110, outside=120)
         self.assertLess(ct.clinical_features(gray, mask)["original_clinical_AnechoicFraction"], 0.01)

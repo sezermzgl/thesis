@@ -22,6 +22,8 @@ DEFINITIONS = {
     "TallerThanWideRatio": "vertical height divided by horizontal width; above 1 means taller than wide",
     "EchogenicityRatio": "mean brightness of the nodule divided by that of the surrounding tissue; "
                          "below 1 means darker than the surroundings, i.e. hypoechoic",
+    "SolidEchogenicityRatio": "mean brightness of the solid (non-fluid) part of the nodule divided by that of "
+                              "the surrounding tissue; below 1 means hypoechoic",
     "PunctateFociDensity": "small bright spots inside the nodule per 1,000 pixels, a proxy for punctate echogenic foci",
     "Solidity": "area divided by the area of its convex hull; 1 means no indentations in the outline",
     "MarginSharpness": "how abruptly brightness changes across the nodule border",
@@ -135,6 +137,8 @@ MEANINGS = {
     "TallerThanWideRatio": ("a taller, more vertically oriented nodule", "a wider, more horizontally oriented nodule"),
     "EchogenicityRatio": ("a nodule closer in brightness to the surrounding tissue (less hypoechoic)",
                           "a nodule darker than the surrounding tissue (more hypoechoic)"),
+    "SolidEchogenicityRatio": ("solid tissue closer in brightness to the surrounding tissue (less hypoechoic)",
+                               "solid tissue darker than the surrounding tissue (more hypoechoic)"),
     "PunctateFociDensity": ("more punctate echogenic foci", "fewer punctate echogenic foci"),
     "Solidity": ("a smoother, more convex outline", "a more lobulated or irregular outline"),
     "MarginSharpness": ("a sharper, well-defined margin", "a blurrier, less well-defined margin"),

@@ -6,6 +6,8 @@ per TI-RADS category (ACR TI-RADS; mapping in the spirit of Salmanpour et al., T
 
     shape            TallerThanWideRatio   vertical extent / horizontal extent of the mask (> 1: taller than wide)
     echogenicity     EchogenicityRatio     mean brightness inside / in a ring of surrounding tissue (< 1: hypoechoic)
+                     SolidEchogenicityRatio  the same over the non-fluid (solid) pixels only, as TI-RADS
+                                           assesses echogenicity; the whole-nodule ratio mostly tracks fluid
     echogenic foci   PunctateFociDensity   small bright spots inside the nodule per 1,000 nodule pixels
     margin           Solidity              area / convex-hull area (< 1: lobulated or irregular outline)
                      MarginSharpness       brightness gradient across the boundary, relative to the ring's spread
@@ -24,8 +26,8 @@ import numpy as np
 from scipy import ndimage as ndi
 
 PREFIX = "original_clinical_"
-NAMES = ["TallerThanWideRatio", "EchogenicityRatio", "PunctateFociDensity", "Solidity",
-         "MarginSharpness", "AnechoicFraction"]
+NAMES = ["TallerThanWideRatio", "EchogenicityRatio", "SolidEchogenicityRatio", "PunctateFociDensity",
+         "Solidity", "MarginSharpness", "AnechoicFraction"]
 COLUMNS = [PREFIX + n for n in NAMES]
 
 # Fixed settings (chosen before looking at labels).
@@ -106,12 +108,15 @@ def clinical_features(gray: np.ndarray, mask: np.ndarray) -> dict[str, float]:
     boundary = mask & ~ndi.binary_erosion(mask)
     spread = math.sqrt(0.5 * (np.var(inside) + ring_std ** 2)) if ring.any() else float(np.std(inside))
 
+    fluid_cut = ANECHOIC_FRACTION_OF_RING * ring_mean
+    solid = inside[inside >= fluid_cut] if ring_mean > 0 else np.array([])
+
     return {
         PREFIX + "TallerThanWideRatio": float(height / width),
         PREFIX + "EchogenicityRatio": float(np.mean(inside) / ring_mean) if ring_mean > 0 else np.nan,
+        PREFIX + "SolidEchogenicityRatio": float(np.mean(solid) / ring_mean) if solid.size else np.nan,
         PREFIX + "PunctateFociDensity": 1000.0 * n_foci / area,
         PREFIX + "Solidity": float(min(1.0, area / _convex_hull_area(mask))),
         PREFIX + "MarginSharpness": float(np.mean(grad[boundary]) / spread) if spread > 0 else np.nan,
-        PREFIX + "AnechoicFraction": float(np.mean(inside < ANECHOIC_FRACTION_OF_RING * ring_mean))
-        if ring_mean > 0 else np.nan,
+        PREFIX + "AnechoicFraction": float(np.mean(inside < fluid_cut)) if ring_mean > 0 else np.nan,
     }
