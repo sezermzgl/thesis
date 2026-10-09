@@ -1,0 +1,38 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B",
+  "feature_set": "v1",
+  "value_format": "decimal",
+  "max_corr": 0.95,
+  "split_scheme": "pooled_seed42",
+  "n_features": 16,
+  "epochs": 5,
+  "lr": 0.0002,
+  "batch": 8,
+  "grad_accum": 2,
+  "max_length": 384,
+  "seed": 42,
+  "precision": "bf16",
+  "gpu": "NVIDIA L4",
+  "lora_targets": [
+    "q_proj",
+    "v_proj"
+  ],
+  "selected_features": [
+    "original_shape2D_MajorAxisLength",
+    "original_glszm_HighGrayLevelZoneEmphasis",
+    "original_shape2D_Elongation",
+    "original_glcm_ClusterShade",
+    "original_glcm_MCC",
+    "original_firstorder_Range",
+    "original_shape2D_Perimeter",
+    "original_glszm_SizeZoneNonUniformity",
+    "original_glszm_GrayLevelNonUniformityNormalized",
+    "original_shape2D_PerimeterSurfaceRatio",
+    "original_shape2D_MinorAxisLength",
+    "original_firstorder_MeanAbsoluteDeviation",
+    "original_glszm_GrayLevelVariance",
+    "original_glcm_Imc1",
+    "original_glszm_GrayLevelNonUniformity",
+    "original_shape2D_PixelSurface"
+  ]
+}
