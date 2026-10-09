@@ -258,5 +258,44 @@ class TestSelection(unittest.TestCase):
         self.assertEqual(dropped, {})
 
 
+class TestSemanticPrompts(unittest.TestCase):
+    names = ["original_shape2D_Sphericity", "original_shape2D_MajorAxisLengthRelative",
+             "original_shape2D_Elongation", "original_gldm_DependenceNonUniformity"]
+    z = np.array([-1.2, 0.1, 1.9, 1.0])
+    pct = np.array([12.0, 55.0, 97.0, 83.0])
+
+    def test_rich_sentence(self):
+        text = ct.render_prompt(self.names, self.z, value_format="rich", percentiles=self.pct)
+        self.assertIn("The 'Sphericity' feature has a z-score of -1.20 and is at percentile 12 of the "
+                      "training nodules: lower than typical, meaning a less round, more irregular outline.", text)
+        self.assertIn("percentile 55 of the training nodules: close to typical.", text)        # no phrase when typical
+        self.assertIn("meaning a more compact, less elongated shape", text)
+        self.assertIn("Elongation (the ratio of the shortest to the longest axis", text)    # misleading name defined
+        self.assertIn("'Dependence Non Uniformity' feature has a z-score of +1.00 and is at percentile 83 "
+                      "of the training nodules: higher than typical.", text)                  # size-driven: no phrase
+
+    def test_semantic_only_has_no_numbers(self):
+        text = ct.render_prompt(self.names, self.z, value_format="semantic_only", percentiles=self.pct)
+        self.assertIn("The 'Sphericity' feature is lower than typical, meaning a less round, more irregular outline.", text)
+        self.assertNotIn("z-score", text)
+        self.assertNotIn("percentile", text)
+
+    def test_relative_sizes(self):
+        from conformal_triage.semantics import meaning
+        self.assertEqual(meaning("original_shape2D_MajorAxisLengthRelative", 95), "a longer nodule relative to the image size")
+        self.assertEqual(meaning("original_shape2D_MajorAxisLength", 5), "a shorter nodule")
+        self.assertNotIn("image size", meaning("original_shape2D_PerimeterSurfaceRatioRelative", 95))
+
+    def test_bands(self):
+        from conformal_triage.semantics import band
+        self.assertEqual([band(p)[1] for p in (5, 10, 29.9, 50, 70, 89, 90, 100)],
+                         ["much lower than typical", "lower than typical", "lower than typical", "close to typical",
+                          "higher than typical", "higher than typical", "much higher than typical", "much higher than typical"])
+
+    def test_needs_percentiles(self):
+        with self.assertRaises(ValueError):
+            ct.render_prompt(self.names, self.z, value_format="rich")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -14,6 +14,9 @@ To try another backbone or setting, change the Configuration cell, restart the s
 - `"zscore"`: states that the value is a z-score relative to the training nodules.
 - `"percentile"`: gives the percentile among the training nodules, computed on the train split only.
 
+- `"rich"`: z-score, percentile and a plain-language band (much lower / lower / close to / higher / much higher than typical, from train-split percentiles 10/30/70/90). Away from typical, a phrase says what the value means for the nodule, e.g. "lower than typical, meaning a less round, more irregular outline". Phrases live in `conformal_triage/semantics.py`; they describe what a feature measures, never which direction is malignant. Needs `MAX_LENGTH = 1024`.
+- `"semantic_only"`: the band and phrase without any numbers (`MAX_LENGTH = 512`).
+
 `MAX_CORR` (default 0.95) removes near-duplicate features before mRMR, using the train split only. When two features have |r| above the threshold, the one less related to the label is dropped. mRMR alone let duplicates through: on v2 it selected both `PixelSurfaceRelative` and `MeshSurfaceRelative`, which are the same number in 2D. Set `MAX_CORR = None` to reproduce the earlier runs. Runs with the filter have `_corr95` in their name.
 
 `LORA_TARGETS` chooses where LoRA adapters go: `"qv"` (attention Q/V projections, all earlier runs) or `"all"` (every linear layer, as in Ra et al. 2025). Runs with a learning rate other than 2e-4 or with `"all"` get `_lr…` / `_lora-all` in their name. Gated models such as `meta-llama/Llama-2-7b-hf` need a Hugging Face token saved in Colab Secrets as `HF_TOKEN` (with notebook access on); the model cell logs in with it.

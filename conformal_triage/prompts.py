@@ -19,6 +19,8 @@ import zlib
 import numpy as np
 import pandas as pd
 
+from .semantics import DEFINITIONS, band, feature_key, meaning
+
 INTRO = ("Classify this thyroid nodule as benign or malignant based on "
          "the following standardized radiomic features.")
 SENTENCE = "The '{name}' feature is measured at {value:.3f}."
@@ -29,6 +31,12 @@ SENTENCES = {
     "zscore": "The '{name}' feature has a z-score of {value:+.2f} relative to the training nodules.",
     "percentile": "The '{name}' feature is at percentile {value:.0f} of the training nodules.",
 }
+# "rich" gives the z-score, the percentile and a plain-language band; "semantic_only" gives the
+# band alone, without numbers. Both need percentiles (train split) next to the z-scores.
+INTRO_SEMANTIC = ("Classify this thyroid nodule as benign or malignant based on the following "
+                  "radiomic features of its ultrasound image. Each feature is compared with the nodules "
+                  "in the training set; brightness is relative within each image.")
+SEMANTIC_FORMATS = ("rich", "semantic_only")
 
 
 FAMILY_LABELS = {"shape2D": "shape", "firstorder": "first-order", "glcm": "GLCM", "glszm": "GLSZM",
@@ -71,10 +79,38 @@ def display_names(feature_names: list[str]) -> list[str]:
     return out
 
 
+def semantic_sentence(raw_name: str, name: str, z: float, percentile: float, with_numbers: bool) -> str:
+    """'The 'Sphericity' feature has a z-score of -1.20 and is at percentile 12 of the training
+    nodules: lower than typical, meaning a less round, more irregular outline.'"""
+    key, _ = feature_key(raw_name)
+    if key in DEFINITIONS:
+        name = f"{name} ({DEFINITIONS[key]})"
+    _, label = band(percentile)
+    phrase = meaning(raw_name, percentile)
+    tail = label + (f", meaning {phrase}" if phrase else "")
+    if with_numbers:
+        return (f"The '{name}' feature has a z-score of {z:+.2f} and is at percentile "
+                f"{percentile:.0f} of the training nodules: {tail}.")
+    return f"The '{name}' feature is {tail}."
+
+
 def render_prompt(feature_names: list[str], values: np.ndarray, dropped: int | None = None,
-                  value_format: str = "decimal") -> str:
-    """Training-format prompt (identical to build_prompt in A11), optionally without one feature."""
+                  value_format: str = "decimal", percentiles: np.ndarray | None = None) -> str:
+    """Training-format prompt (identical to build_prompt in A11), optionally without one feature.
+
+    For "rich" and "semantic_only", `values` are z-scores and `percentiles` their train-split
+    percentiles (0-100).
+    """
     names = display_names(feature_names)
+    if value_format in SEMANTIC_FORMATS:
+        if percentiles is None:
+            raise ValueError(f"value_format={value_format!r} needs percentiles")
+        sentences = [
+            semantic_sentence(raw, name, z, p, with_numbers=value_format == "rich")
+            for i, (raw, name, z, p) in enumerate(zip(feature_names, names, values, percentiles))
+            if i != dropped
+        ]
+        return " ".join([INTRO_SEMANTIC, *sentences])
     sentence = SENTENCES[value_format]
     sentences = [
         sentence.format(name=name, value=value)
