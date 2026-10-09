@@ -5,6 +5,7 @@
 % Figure: mask -> radiomics -> selection -> prompt -> LLM -> score -> triage rule.
 
 \section{Radiomics feature extraction}
+\label{sec:methods-extraction}
 \subsection{First extraction (v1)}
 % 67 features: shape2D, first-order, GLCM, GLSZM; binWidth 25; shape in pixels.
 \subsection{Revised extraction (v2)}
@@ -24,6 +25,7 @@
 % XGBoost with fixed hyperparameters on the same features \citep{chen2016xgboost}.
 
 \section{Conformal triage layer}
+\label{sec:methods-triage}
 \subsection{Three-way decision rule}
 \subsection{Risk definitions and Learn-then-Test calibration}
 % R1 cancers among auto-benign <= 5%, R2 benign among auto-malignant <= 20%, delta = 0.05.

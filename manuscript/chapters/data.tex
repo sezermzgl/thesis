@@ -1,22 +1,210 @@
 \chapter{Data}
 \label{ch:data}
 
+This chapter describes the dataset, the quality checks run on its images and masks, and the
+data split used in the experiments. The split needs some space because the official TN3K split
+turned out to be unsuitable for conformal calibration (Section~\ref{sec:data-official}), which
+led to the pooled split used in the later experiments (Section~\ref{sec:data-pooled}).
+
 \section{The TN3K dataset}
-% 3,493 ultrasound images from 2,421 patients, one nodule mask per image, benign/malignant label
-% from cytological biopsy \citep{gong2021tn3k,gong2022acl}. Official patient-disjoint split:
-% trainval 2,879, test 614.
+\label{sec:data-tn3k}
+
+TN3K is a public thyroid ultrasound dataset released with the TRFE-Net segmentation
+model~\citep{gong2021tn3k,gong2023trfe}. It contains 3,493 two-dimensional ultrasound images
+from 2,421 patients. Each image comes with a pixel-level segmentation mask of the nodule and a
+single benign or malignant label. The images were acquired with different devices and from
+different views.
+
+The labels are taken from the cytological biopsy
+of the nodule~\citep{gong2022acl}, usually obtained by fine-needle aspiration (FNA), which is the
+clinical reference standard for thyroid nodules. The label therefore records the result of the
+biopsy, not a radiologist's reading of the image. The same authors note that the biopsy result
+does not always agree with the risk suggested by the ultrasound appearance under
+TI-RADS~\citep{gong2022acl,tessler2017}.
+
+The dataset comes with an official split into a training-and-validation set (\emph{trainval})
+and a test set, and images from the same patient appear in only one of the two
+(Table~\ref{tab:data-official}).
+
+\begin{table}[ht]
+  \centering
+  \caption{Official TN3K split.}
+  \label{tab:data-official}
+  \begin{tabular}{lrrrr}
+    \toprule
+    official subset & images & benign & malignant & malignant share \\
+    \midrule
+    trainval & 2,879 & 1,905 & 974 & 33.8\% \\
+    test     &   614 &   378 & 236 & 38.4\% \\
+    \midrule
+    total    & 3,493 & 2,283 & 1,210 & 34.6\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Two properties of the released files matter for the rest of this work:
+
+\begin{itemize}
+  \item \textbf{No physical scale.} The images carry no pixel spacing, so sizes can only be
+        measured in pixels or relative to the image, not in millimetres.
+  \item \textbf{No patient identifiers.} The patient of each image is not released. Images can
+        therefore not be grouped by patient when the data are split again
+        (Section~\ref{sec:data-patients}).
+\end{itemize}
+
+The masks are stored as JPEG files. Because of compression they contain between 16 and 29
+distinct grey values (median 22) instead of two, and they are binarised with a threshold of 127.
 
 \section{Image and mask quality control}
-% Report §11.4: image sizes differ between the official sources; multi-component and
-% border-touching masks; about 9 grey levels inside a nodule with binWidth 25.
+\label{sec:data-qc}
+
+Before feature extraction, every image and mask was checked. All 3,493 images load correctly
+and each mask has the same size as its image. Three findings affect the features
+(Table~\ref{tab:data-qc}).
+
+\begin{table}[ht]
+  \centering
+  \caption{Image and mask checks by official subset (medians or shares of images).}
+  \label{tab:data-qc}
+  \begin{tabular}{lrr}
+    \toprule
+    & trainval & official test \\
+    \midrule
+    image width (pixels)               & 390    & 436 \\
+    image height (pixels)              & 336    & 375 \\
+    nodule area (share of the image)   & 8.6\%  & 7.0\% \\
+    masks with more than one component & 7.8\%  & 11.7\% \\
+    masks touching the image border    & 11.2\% & 5.4\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{enumerate}
+  \item \textbf{Image size varies, and official-test images are larger.} Size measured in pixels
+        therefore partly measures the image: the major axis length of the nodule correlates with
+        image width at $r = 0.42$. Image width alone predicts malignancy weakly (AUC 0.57), which
+        points to an acquisition-related confounder. Relative to the image, official-test
+        nodules are slightly \emph{smaller}.
+  \item \textbf{Multi-component masks.} 298 masks consist of more than one region. These images
+        are less often malignant (21.8\% against 35.8\%).
+  \item \textbf{Border-touching masks.} 356 masks touch the image border, so part of the nodule
+        may lie outside the image. These images are also less often malignant (21.9\% against
+        36.1\%).
+\end{enumerate}
+
+How these findings were handled in feature extraction is described in
+Section~\ref{sec:methods-extraction}.
 
 \section{The official split is not exchangeable}
-% Report §5: two-sample AUC 0.63 between calibration and official test; image-size artefact;
-% sources differ beyond pixel scale (A5 check in runs/2026-10-08_v2_pipeline).
+\label{sec:data-official}
+
+The conformal methods used in this work (Section~\ref{sec:methods-triage}) assume that the
+calibration nodules and the nodules the rule is later applied to are
+\emph{exchangeable}: informally, that they are drawn from the same distribution. The first
+experiments kept the official test set for reporting and split trainval at random, stratified by
+label, into train (2,015 images), validation (432) and calibration (432).
+
+\paragraph{Classifier two-sample test.} Exchangeability was checked with a classifier two-sample
+test. A logistic regression is trained to tell two samples apart from their standardised
+features. Its 5-fold cross-validated AUC is close to 0.5 when the samples come from the same
+distribution. A permutation p-value is computed from 500 random relabellings of the two samples,
+so the smallest possible value is $1/501 \approx 0.002$.
+
+\begin{table}[ht]
+  \centering
+  \caption{Two-sample test on the official split, using the eight features selected in the
+           first experiments.}
+  \label{tab:data-twosample-official}
+  \begin{tabular}{lrr}
+    \toprule
+    comparison & AUC & p-value \\
+    \midrule
+    validation vs calibration (control) & 0.506 & 0.37 \\
+    calibration vs official test        & 0.632 & 0.002 \\
+    \quad benign nodules only           & 0.644 & 0.002 \\
+    \quad malignant nodules only        & 0.633 & 0.002 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Calibration and official test are clearly distinguishable
+(Table~\ref{tab:data-twosample-official}), and the difference holds within each class, so it is
+not explained by the different malignant share. The validation--calibration control is
+consistent with exchangeability, as expected for two random parts of the same set.
+
+\paragraph{Not only image size.} Image size explains part of the difference: image width alone
+separates official-test images from trainval images with AUC 0.77. The revised features
+(Section~\ref{sec:methods-extraction}) express shape relative to the image. If image size were
+the only difference, the two sources should become harder to separate with these features. They
+do not (Table~\ref{tab:data-sources}): the sources differ in ways that size normalisation does
+not remove. The cause is not known; different devices or acquisition periods are possible
+explanations.
+
+\begin{table}[ht]
+  \centering
+  \caption{Two-sample test, trainval (2,879 images) vs official test (614 images). All p-values
+           are 0.002.}
+  \label{tab:data-sources}
+  \begin{tabular}{lr}
+    \toprule
+    features & AUC \\
+    \midrule
+    v1 shape features (pixels)   & 0.654 \\
+    v2 shape features (relative) & 0.709 \\
+    v1, all 67 features          & 0.708 \\
+    v2, all 102 features         & 0.805 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+As a consequence, error rates measured on the official test set describe the behaviour of a
+calibrated rule under distribution shift; they do not test its guarantee.
 
 \section{The pooled split}
-% splits/pooled_seed42.csv: stratified by label and source; train 2,095, validation 436,
-% calibration 524, test 438. Exchangeability check after re-splitting.
+\label{sec:data-pooled}
+
+To obtain calibration and test sets from the same distribution, all 3,493 images were pooled and
+split again at random, stratified by label and by official source
+(\texttt{experiments/make\_pooled\_splits.py}, seed 42). The proportions are 60\% train, 12.5\%
+validation, 15\% calibration and 12.5\% test (Table~\ref{tab:data-pooled}). The split is stored
+in \texttt{splits/pooled\_seed42.csv} and is used in all experiments from 8 October 2026 onwards.
+
+\begin{table}[ht]
+  \centering
+  \caption{Pooled split.}
+  \label{tab:data-pooled}
+  \begin{tabular}{lrrrl}
+    \toprule
+    split & images & malignant & from official test & used for \\
+    \midrule
+    train       & 2,095 & 34.6\% & 17.6\% & fitting, scaling, feature selection \\
+    validation  &   436 & 34.6\% & 17.4\% & checkpoint and setting selection \\
+    calibration &   524 & 34.7\% & 17.7\% & conformal thresholds only \\
+    test        &   438 & 34.7\% & 17.6\% & reporting only \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+With the same two-sample test, validation and calibration (AUC 0.476) and calibration and test
+(AUC 0.434, p = 1.0) can no longer be told apart. The guarantees calibrated on this split
+therefore apply to its test set. The price is that the test set is no longer an independent
+external sample: it estimates performance on the TN3K population as a whole, a mixture of both
+official sources.
 
 \subsection{Patient-level independence}
-% Image-level split without patient IDs: limitation text agreed on 2026-10-09.
+\label{sec:data-patients}
+
+The official split keeps each patient in a single subset. Because patient identifiers are not
+released, the pooled split was drawn at image level. Images of the same patient, possibly showing
+the same nodule in different views, can therefore appear in both the training and the test
+split. The same holds for the train, validation and calibration sets of the first experiments,
+which were drawn at image level from trainval.
+
+The share of affected test images is unknown. TN3K has 1,072 more images than patients; under
+the most unfavourable distribution of these repeated images, about 40\% of the test images could
+have an image of the same patient in the training set. This overlap makes the absolute test
+metrics optimistic for previously unseen patients. All models compared on the same split are
+exposed to it, so relative comparisons are less affected, although models that use more
+features may benefit more from it. The main negative result of this work is not weakened:
+overlap can only make the automatic benign group look cleaner, and Learn-then-Test still
+certified no automatic decision (Chapter~\ref{ch:results}).
