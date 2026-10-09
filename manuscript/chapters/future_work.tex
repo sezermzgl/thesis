@@ -15,21 +15,23 @@
 
 \section{Clinically motivated features}
 
-Three features follow TI-RADS signs that the current radiomics features miss. All can be computed
-from the image and the mask:
+The TI-RADS-motivated features are the most promising direction (Section~\ref{sec:results-clinical}).
+Three steps follow:
 
 \begin{itemize}
-  \item the taller-than-wide ratio of the nodule;
-  \item relative echogenicity: the brightness of the nodule against a ring of surrounding tissue,
-        measured on the image before per-image rescaling;
-  \item the number of small bright spots inside the nodule, as an approximate measure of
-        microcalcifications.
+  \item \textbf{Echogenicity of the solid part.} The echogenicity ratio is strongly tied to the
+        anechoic fraction (correlation $-0.78$): it measures fluid rather than the echogenicity of
+        tissue. Computed on the non-fluid pixels only, as TI-RADS prescribes, it may point the
+        expected way.
+  \item \textbf{Their meaning for the language model.} The plain-language formats did not help
+        with radiomics features, whose names mean little to a language model. Phrases such as
+        ``taller than wide'' or ``a more lobulated outline'' are the language of radiology reports;
+        if meaning helps anywhere, it should help here. A prompt with the TI-RADS features alone
+        isolates this question.
+  \item \textbf{A pre-specified ordering for Learn-then-Test.} Ordering the candidate thresholds
+        on validation certified an auto-malignant rule for run I (Section~\ref{sec:results-ltt}).
+        Fixed in advance, the rule can be tested on new seeds and splits.
 \end{itemize}
-
-They will first be tested with XGBoost. If they help, they will be added to the prompts both as
-numbers and as plain-language statements. They may also give the strongest answer to the question
-of what a language model adds: such features have a clinical name and meaning that a language
-model may already know.
 
 \section{Robustness}
 

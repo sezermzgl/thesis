@@ -73,6 +73,39 @@ The revised extraction changes four settings and keeps everything else:
 This gives 102 features for all 3,493 images, with no extraction errors. As a consistency check,
 on single-component masks the features shared with v1 reproduce the v1 values exactly.
 
+\section{TI-RADS-motivated features}
+\label{sec:methods-clinical}
+
+PyRadiomics describes the nodule region on its own: its shape features do not depend on
+orientation, and every feature is computed inside the mask. Several TI-RADS signs depend on
+exactly what this leaves out, the orientation of the nodule and its contrast with the surrounding
+tissue~\citep{tessler2017}. Following the TI-RADS categories, six features were computed from each
+image as stored (without per-image rescaling) and its mask, with settings fixed before any label
+was looked at (\texttt{conformal\_triage/clinical.py}):
+
+\begin{itemize}
+  \item \textbf{Shape:} the taller-than-wide ratio, the vertical extent of the mask divided by its
+        horizontal extent. The image is taken as acquired, with depth downwards; whether a view is
+        transverse or longitudinal is not recorded in TN3K.
+  \item \textbf{Echogenicity:} the mean brightness inside the nodule divided by the mean of a
+        ring of surrounding tissue (width a quarter of the nodule's equivalent radius, at least 4
+        pixels, excluding the black area outside the ultrasound sector).
+  \item \textbf{Echogenic foci:} small bright spots per 1,000 nodule pixels. A spot is a
+        connected region of 2--40 pixels inside the slightly eroded nodule whose white top-hat
+        response (radius 3) exceeds the median by six robust standard deviations and which is
+        brighter than the surrounding ring.
+  \item \textbf{Margin:} solidity, the nodule area divided by the area of its convex hull
+        (below 1 for lobulated or irregular outlines), and margin sharpness, the mean gradient
+        magnitude on the boundary divided by the brightness spread of the nodule and the ring.
+  \item \textbf{Composition:} the share of nodule pixels darker than a quarter of the ring's
+        mean brightness, as fluid would be.
+\end{itemize}
+
+All six are ratios or densities, so they do not depend on image size or on the overall gain of
+the scanner. They are heuristics: each was checked on synthetic nodules (unit tests), not against
+expert TI-RADS ratings, which TN3K does not provide. When used, they are always placed first in
+the prompt; the radiomics features are still filtered and ranked by mRMR as described below.
+
 \section{Preprocessing and feature selection}
 \label{sec:methods-selection}
 

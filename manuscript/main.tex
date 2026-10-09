@@ -47,11 +47,15 @@ On the TN3K dataset (3,493 images with biopsy-based labels), an audit showed tha
 calibration and test sources are not exchangeable and that the original features had defects; a
 pooled split and a revised extraction address both. With the revised features, the test AUC of
 Qwen2.5-1.5B rises from 0.70 to 0.75, while XGBoost on the same features reaches 0.81. Stating
-values as z-scores changes nothing, replacing them by percentiles hurts, and neither Qwen2.5-7B nor Llama-2-7B with the settings of Ra et al.\ has
-helped so far. No automatic decision could be certified in any setting: the model's errors are
-stable across perturbed queries, agreement between queries is no better than the softmax
-probability, and its cleanest low-risk groups are too small for the evidence required. A weaker
-guarantee on the share of missed cancers can be certified, but varies across runs. The thesis
+values as z-scores changes nothing, replacing them by percentiles hurts, adding plain-language
+meanings does not help, and neither Qwen2.5-7B nor Llama-2-7B with the settings of Ra et al.\
+helps. What helps is information the radiomics features lack: six features computed from TI-RADS
+signs, such as the taller-than-wide ratio and the solidity of the outline, raise XGBoost to 0.83
+and the language model to 0.80. Under the planned procedure no automatic decision could be
+certified: the model's errors are stable across perturbed queries, agreement between queries is
+no better than the softmax probability, and its cleanest low-risk groups are too small for the
+evidence required. Classical split conformal prediction and a guarantee on the share of missed
+cancers are attainable, but they leave 10--17\% cancers among the automatic benign calls. The thesis
 reports work in progress; ongoing experiments are listed at the end.
 \end{abstract}
 

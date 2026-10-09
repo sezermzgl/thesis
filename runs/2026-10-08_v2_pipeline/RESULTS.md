@@ -34,6 +34,7 @@ No setting certifies the 5% auto-benign rule; the lowest 15% of calibration hold
 | E | Qwen2.5-1.5B | v2 | 0.95 | zscore | 0.729 | 0.756 | 0.759 | 37 |
 | F | Qwen2.5-1.5B | v2 | 0.95 | percentile | 0.709 | 0.713 | 0.734 | 37 |
 | H | Qwen2.5-1.5B | v2 | 0.95 | rich | 0.732 | 0.711 | 0.744 | 83 |
+| I | Qwen2.5-1.5B | v2 + 6 TI-RADS features | 0.95 | decimal | 0.795 | 0.812 | **0.804** | 36 |
 | G | Llama-2-7B, LR 1e-4, LoRA all layers (Ra et al. settings), batch 4 × 4, MAX_LENGTH 512 | v2 | 0.95 | decimal | 0.705 | 0.709 | 0.731 | 182 |
 
 Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC difference:
@@ -44,6 +45,7 @@ Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC 
 | C − A | model size (and filter) | [−0.083, −0.022] | [−0.069, −0.004] |
 | E − D | z-score wording | [−0.016, +0.022] | [−0.017, +0.029] |
 | F − D | percentile values | [−0.075, −0.005] | [−0.057, +0.022] |
+| I − D | + TI-RADS-motivated features | [+0.028, +0.093] | [+0.015, +0.084] |
 | H − D | rich (plain-language meaning added) | [−0.074, −0.011] | [−0.041, +0.023] |
 | G − D | Llama-2-7B with Ra et al. settings vs Qwen2.5-1.5B | [−0.070, −0.016] | [−0.052, +0.007] |
 | G − C | Llama-2-7B vs Qwen2.5-7B | [−0.014, +0.022] | [−0.002, +0.036] |
@@ -56,8 +58,13 @@ Findings:
 - **The near-duplicate filter does not change the LLM** (A vs D, within ±0.005), although it lifts XGBoost with 16 v2 features from 0.780 to 0.805.
 - **Number format**: stating the reference (z-score) changes nothing; percentiles, which compress the tails, lose 0.04 on validation and calibration. The LLM uses the magnitude of the values.
 - **The rich format (H) does not help**: plain-language bands and meanings on top of the z-score give test 0.744 vs 0.754 and are worse on calibration (interval excludes zero). Validation AUC rose faster (0.719 after epoch 2) and then plateaued at 0.73. Prompts up to 780 tokens; 83 minutes.
-- **LTT certifies nothing in any run.** Best tail: run E, lowest 15% of calibration with 1 cancer out of 78; at threshold 0.20, 90 nodules with 3 cancers (1 error would need ≥ 93 nodules, 3 errors ≥ 153).
+- **TI-RADS-motivated features (run I, `conformal_triage/clinical.py`) help both models most.** XGBoost with mRMR 16 + the six features: 0.828/0.848/0.831 (vs 0.799/0.823/0.805; all 54 radiomics features give 0.796, the six alone 0.775). The LLM rises to 0.795/0.812/0.804 (+0.05 vs D, intervals exclude zero on all splits); the gap to XGBoost shrinks from ~0.05 to 0.027 and training is stable. Train AUCs of the features: taller-than-wide 0.658, solidity 0.367, anechoic fraction 0.409 (as TI-RADS expects); echogenicity ratio 0.552 and margin sharpness 0.563 (opposite to expectation), punctate foci 0.487 (no signal). Per-split AUCs are consistent. The echogenicity ratio correlates −0.78 with the anechoic fraction: it measures fluid, not tissue echogenicity.
+- **LTT certifies nothing in any run under the planned procedure.** Best tail: run E, lowest 15% of calibration with 1 cancer out of 78; at threshold 0.20, 90 nodules with 3 cancers (1 error would need ≥ 93 nodules, 3 errors ≥ 153).
 - **Exploratory miss-rate rule** (cancers sent to auto-benign ≤ 5%): the test miss rate ranges from 2.6% to 8.6% across runs (run D: 8.6% at t = 0.16), so a single run can exceed the target (run G: t = 0.17, test miss rate 0.7% with 7.8% automated).
+
+## LTT with a validation-ordered sequence (exploratory)
+
+The planned fixed sequence starts at the strictest threshold (u = 0.95 / t = 0.05), where few nodules fall, and stops at the first failure. Ordering the candidates by their validation p-values instead (validation is independent of calibration, so the guarantee holds) certifies, for run I, auto-malignant at u = 0.85: calibration 50 nodules, 4 benign, p = 0.018; test 43 nodules (9.8% of test), 5 benign (11.6% ≤ 20%). Nothing for runs D and E; nothing on the auto-benign side. The rule was chosen after seeing run I, so it must be fixed in advance and confirmed on another seed or split.
 
 ## Split conformal prediction (computed afterwards from the saved probabilities)
 
@@ -75,6 +82,7 @@ Mondrian, α = 0.10 for benign and 0.05 for malignant nodules (at most ~5% of ca
 | F | 0.928 | 18.5% | 13.6% | 15.8% | 39.1% | 65.8% |
 | G | 0.954 | 18.0% | 8.9% | 14.6% | 35.9% | 67.4% |
 | H | 0.987 | 8.7% | 5.3% | 12.3% | 27.8% | 79.0% |
+| I | 0.941 | 18.3% | 11.3% | 22.8% | 22.0% | 58.9% |
 
 - Marginal coverage holds (α = 0.10: 0.90–0.92; α = 0.05: 0.94–0.95), but it is carried by the benign majority: at α = 0.10 only 70–86% of cancers are covered.
 - Mondrian gives a guarantee on missed cancers (like the miss-rate rule) for about a fifth of the nodules, but the auto-benign sets still hold 10–17% cancers, so it does not meet R1 (≤ 5% cancers among auto-benign calls). This is why LTT certifies nothing while split CP "works".

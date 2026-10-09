@@ -46,23 +46,25 @@ of 0.75--0.76.
 \begin{table}[ht]
   \centering
   \small
+  \setlength{\tabcolsep}{4pt}
   \caption{Language-model runs on the pooled split (16 features, 5 epochs; learning rate
            $2 \times 10^{-4}$ and LoRA on Q/V unless stated). Sensitivity at threshold 0.5 on
            test. Run G uses the settings of Ra et al.: learning rate $10^{-4}$, LoRA on all
-           linear layers.}
+           linear layers. (f): near-duplicate filter.}
   \label{tab:results-llm}
   \begin{tabular}{llllrrrrr}
     \toprule
     run & model & features & format & val & cal & test & sens. & minutes \\
     \midrule
     A & Qwen2.5-1.5B & v2            & decimal    & 0.753 & 0.757 & 0.750 & 0.66 & 26 \\
-    B & Qwen2.5-1.5B & v1, filtered  & decimal    & 0.709 & 0.705 & 0.699 & 0.67 & 27 \\
-    C & Qwen2.5-7B   & v2, filtered  & decimal    & 0.708 & 0.705 & 0.713 & 0.00 & 90 \\
-    D & Qwen2.5-1.5B & v2, filtered  & decimal    & 0.750 & 0.752 & 0.754 & 0.71 & 26 \\
-    E & Qwen2.5-1.5B & v2, filtered  & z-score    & 0.729 & 0.756 & 0.759 & 0.65 & 37 \\
-    F & Qwen2.5-1.5B & v2, filtered  & percentile & 0.709 & 0.713 & 0.734 & 0.65 & 37 \\
-    G & Llama-2-7B   & v2, filtered  & decimal    & 0.705 & 0.709 & 0.731 & 0.66 & 182 \\
-    H & Qwen2.5-1.5B & v2, filtered  & rich       & 0.732 & 0.711 & 0.744 & 0.64 &  83 \\
+    B & Qwen2.5-1.5B & v1 (f)        & decimal    & 0.709 & 0.705 & 0.699 & 0.67 & 27 \\
+    C & Qwen2.5-7B   & v2 (f)        & decimal    & 0.708 & 0.705 & 0.713 & 0.00 & 90 \\
+    D & Qwen2.5-1.5B & v2 (f)        & decimal    & 0.750 & 0.752 & 0.754 & 0.71 & 26 \\
+    E & Qwen2.5-1.5B & v2 (f)        & z-score    & 0.729 & 0.756 & 0.759 & 0.65 & 37 \\
+    F & Qwen2.5-1.5B & v2 (f)        & percentile & 0.709 & 0.713 & 0.734 & 0.65 & 37 \\
+    G & Llama-2-7B   & v2 (f)        & decimal    & 0.705 & 0.709 & 0.731 & 0.66 & 182 \\
+    H & Qwen2.5-1.5B & v2 (f)        & rich       & 0.732 & 0.711 & 0.744 & 0.64 &  83 \\
+    I & Qwen2.5-1.5B & v2 (f) + TI-RADS & decimal & 0.795 & 0.812 & 0.804 & 0.65 & 36 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -126,7 +128,7 @@ value means for the nodule does not help.
     \midrule
     E $-$ D & z-score wording      & $[-0.016, +0.022]$ & $[-0.017, +0.029]$ \\
     F $-$ D & percentile values    & $[-0.075, -0.005]$ & $[-0.057, +0.022]$ \\
-    H $-$ D & rich: plain-language meaning added & $[-0.074, -0.011]$ & $[-0.041, +0.023]$ \\
+    H $-$ D & rich format          & $[-0.074, -0.011]$ & $[-0.041, +0.023]$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -178,7 +180,8 @@ bottleneck.
 \section{How does the language model compare with XGBoost?}
 \label{sec:results-xgb}
 
-XGBoost is better with the same features, by about 0.05 AUC:
+XGBoost is better with the same features, by about 0.05 AUC (by 0.027 once the TI-RADS-motivated
+features of Section~\ref{sec:results-clinical} are added):
 
 \begin{itemize}
   \item pooled split, 16 v2 features after filtering: XGBoost 0.805, language model 0.754
@@ -189,6 +192,70 @@ XGBoost is better with the same features, by about 0.05 AUC:
 
 The language model also gains less from more features. On the official split, XGBoost improved
 from 8 to 16 features while the 7B language model did not (0.669 and 0.666).
+
+\section{Do TI-RADS-motivated features help?}
+\label{sec:results-clinical}
+
+Yes, for both models, and more than any other change tried. Table~\ref{tab:results-clinical-uni}
+shows each feature on its own, on the training split.
+
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{TI-RADS-motivated features on their own: AUC on the training split (above 0.5: higher
+           in malignant nodules) and the direction TI-RADS leads one to expect.}
+  \label{tab:results-clinical-uni}
+  \begin{tabular}{llrl}
+    \toprule
+    category & feature & train AUC & as expected? \\
+    \midrule
+    shape          & taller-than-wide ratio & 0.658 & yes (higher in cancers) \\
+    margin         & solidity               & 0.367 & yes (lower in cancers) \\
+    composition    & anechoic fraction      & 0.409 & yes (benign nodules more cystic) \\
+    echogenicity   & echogenicity ratio     & 0.552 & no (expected below 0.5) \\
+    margin         & margin sharpness       & 0.563 & no (expected below 0.5) \\
+    echogenic foci & punctate foci density  & 0.487 & no signal \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Three features behave as TI-RADS predicts, and the taller-than-wide ratio alone is as
+discriminative as the best single radiomics features. The echogenicity ratio points the wrong way,
+probably because it averages over the whole nodule: cystic nodules, mostly benign, are dark
+because of their fluid, while TI-RADS judges echogenicity on the solid part. Margin sharpness may
+measure contrast rather than blur, and the simple spot detector finds no signal for
+microcalcifications in speckled images.
+
+Added to the 16 radiomics features, the six features raise XGBoost from 0.805 to 0.831 on test
+(Table~\ref{tab:results-clinical-xgb}), with the same gain on validation and calibration. Adding the
+remaining 38 radiomics features instead gives nothing (0.796), so the gain comes from information
+that the radiomics features do not contain. The six features alone reach 0.775.
+
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{XGBoost with and without the TI-RADS-motivated features (pooled split, radiomics
+           features after the near-duplicate filter).}
+  \label{tab:results-clinical-xgb}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    features & number & val & cal & test & \multicolumn{1}{p{2.4cm}}{\raggedleft cancers in lowest 15\% of cal} \\
+    \midrule
+    radiomics, mRMR 16            & 16 & 0.799 & 0.823 & 0.805 & 4/78 \\
+    radiomics, mRMR 16 + TI-RADS  & 22 & 0.828 & 0.848 & 0.831 & 2/78 \\
+    TI-RADS only                  &  6 & 0.786 & 0.787 & 0.775 & 6/78 \\
+    radiomics, all                & 54 & 0.805 & 0.816 & 0.796 & 2/78 \\
+    radiomics, all + TI-RADS      & 60 & 0.824 & 0.836 & 0.826 & 3/78 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The language model gains even more. With the same 22 features and the decimal format (run I), its
+test AUC rises from 0.754 to 0.804, with paired intervals $[+0.011, +0.080]$ on validation,
+$[+0.028, +0.093]$ on calibration and $[+0.015, +0.084]$ on test. The gap to XGBoost with the same
+features shrinks from about 0.05 to 0.027, and the language model now matches XGBoost on the
+radiomics features alone. Training also stayed stable: validation AUC was 0.744 after the first
+epoch and rose steadily to 0.795.
 
 \section{Can Learn-then-Test certify automatic decisions?}
 \label{sec:results-ltt}
@@ -259,13 +326,28 @@ are far from what LTT needs: 59 nodules without a cancer, or 93 with one
     official, softmax       & not certified at any candidate \\
     pooled, best LLM (run E) & lowest 15\%: 78 nodules, 1 malignant; $P \le 0.20$: 90 nodules, 3 malignant \\
     pooled, XGBoost         & lowest 15\%: 78 nodules, 2--11 malignant depending on the feature set \\
+    pooled, LLM + TI-RADS (run I) & lowest 15\%: 78 nodules, 8 malignant; $P \le 0.05$: 4 nodules, none malignant \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 Run E comes closest. Its 78 lowest-scored calibration nodules contain one cancer (1.3\%), well
 below the 5\% target, but 78 nodules are not enough evidence: with one cancer, 93 are needed. The
-auto-malignant side fails in the same way. Split conformal prediction is not a way out: on the
+auto-malignant side fails in the same way under the planned procedure.
+
+Run I shows a second obstacle, which lies in the procedure rather than the model. Its
+auto-malignant side has evidence at one candidate: at $u = 0.85$, 50 calibration nodules of which 4
+are benign (8\%), $p = 0.018$ against $\alpha_2 = 20\%$. The planned fixed sequence, however,
+starts at the strictest threshold, $u = 0.95$, where only 13 nodules fall ($p = 0.23$), stops at
+this first failure and never reaches 0.85. Ordering the candidates by their $p$-values on the
+validation split, which is independent of calibration and therefore keeps the guarantee, puts
+0.85 first and certifies it. On test, this rule calls 43 nodules (9.8\%) malignant automatically,
+5 of them benign (11.6\%, below the 20\% bound). The same rule certifies nothing for runs D and
+E, and nothing on the auto-benign side of any run. Because the ordering rule was chosen after run
+I was seen, this result is exploratory: it has to be fixed in advance and confirmed on another
+split or seed before it can be claimed.
+
+Split conformal prediction is not a way out: on the
 official test set, the automatic benign calls of softmax-based split conformal prediction
 contained 23\% cancers, and on the pooled split 10--20\% (Section~\ref{sec:results-splitcp}). A
 coverage guarantee does not bound the clinical error rate.
@@ -292,6 +374,7 @@ pooled run, for 4--19\% of the calibration nodules (Table~\ref{tab:results-miss}
     F & 0.26 &  9.2\% & 11.0\% & 3.3\% \\
     G & 0.17 &  6.9\% &  7.8\% & 0.7\% \\
     H & 0.20 &  4.2\% &  3.7\% & 0.7\% \\
+    I & 0.09 &  6.1\% &  5.5\% & 0.7\% \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -306,7 +389,7 @@ This analysis was not planned in advance and is reported as exploratory.
 \label{sec:results-splitcp}
 
 Classical split conformal prediction (Section~\ref{sec:methods-splitcp}) gives what it promises on
-the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.90--0.93 in all eight runs, and
+the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.90--0.93 in all nine runs, and
 with $\alpha = 0.05$ it is 0.94--0.97. Marginal coverage, however, is carried by the benign
 majority: at $\alpha = 0.10$ only 70--86\% of the test cancers have ``malignant'' in their set.
 The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}).
@@ -335,6 +418,7 @@ The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}
     F & 0.928 & 18.5\% & 13.6\% & 15.8\% & 39.1\% & 65.8\% \\
     G & 0.954 & 18.0\% &  8.9\% & 14.6\% & 35.9\% & 67.4\% \\
     H & 0.987 &  8.7\% &  5.3\% & 12.3\% & 27.8\% & 79.0\% \\
+    I & 0.941 & 18.3\% & 11.3\% & 22.8\% & 22.0\% & 58.9\% \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -343,7 +427,7 @@ About a fifth of the nodules receive the single label ``benign'', and roughly 60
 Two caveats follow from the table. First, the cancers among the auto-benign calls make up 5--17\%
 of that group: the guarantee limits how many cancers are missed overall, not how safe a single
 benign call is, so it does not replace $R_1$. Second, the share of cancers covered is
-0.90--0.94 in six of the eight runs, below the 0.95 target (runs G and H reach 0.954 and
+0.90--0.94 in seven of the nine runs, below the 0.95 target (runs G and H reach 0.954 and
 0.987). The runs share one calibration set and one test
 set, so this is one draw of the data repeated rather than independent failures: with
 182 calibration and 152 test cancers, a shortfall of this size on a single draw is plausible, and
