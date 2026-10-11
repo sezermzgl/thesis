@@ -37,6 +37,7 @@ No setting certifies the 5% auto-benign rule; the lowest 15% of calibration hold
 | I | Qwen2.5-1.5B | v2 + 6 TI-RADS features | 0.95 | decimal | 0.795 | 0.812 | **0.804** | 36 |
 | J | Qwen2.5-1.5B | v2 + 7 TI-RADS features (adds solid-part echogenicity) | 0.95 | decimal | 0.786 | 0.802 | 0.781 | 37 |
 | K | Qwen2.5-1.5B | v2 + 6 TI-RADS features | 0.95 | rich | 0.803 | 0.785 | 0.801 | 132 |
+| L | Qwen2.5-7B, LR 5e-5, batch 4 × 4 | v2 + 6 TI-RADS features | 0.95 | decimal | 0.751 | 0.712 | 0.693 | 123 |
 | G | Llama-2-7B, LR 1e-4, LoRA all layers (Ra et al. settings), batch 4 × 4, MAX_LENGTH 512 | v2 | 0.95 | decimal | 0.705 | 0.709 | 0.731 | 182 |
 
 Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC difference:
@@ -54,6 +55,8 @@ Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC 
 | J − I | + solid-part echogenicity ratio | [−0.027, +0.008] | [−0.043, −0.001] |
 | K − I | rich instead of decimal, with TI-RADS features | [−0.049, −0.005] | [−0.031, +0.022] |
 | K − H | + TI-RADS features, rich format | [+0.037, +0.111] | [+0.013, +0.101] |
+| L − I | Qwen2.5-7B (LR 5e-5) vs 1.5B, both with TI-RADS features | [−0.137, −0.063] | [−0.148, −0.076] |
+| L − C | + TI-RADS features and LR 5e-5, both Qwen2.5-7B | [−0.031, +0.047] | [−0.062, +0.023] |
 
 Findings:
 
@@ -66,6 +69,7 @@ Findings:
 - **TI-RADS-motivated features (run I, `conformal_triage/clinical.py`) help both models most.** XGBoost with mRMR 16 + the six features: 0.828/0.848/0.831 (vs 0.799/0.823/0.805; all 54 radiomics features give 0.796, the six alone 0.775). The LLM rises to 0.795/0.812/0.804 (+0.05 vs D, intervals exclude zero on all splits); the gap to XGBoost shrinks from ~0.05 to 0.027 and training is stable. Train AUCs of the features: taller-than-wide 0.658, solidity 0.367, anechoic fraction 0.409 (as TI-RADS expects); echogenicity ratio 0.552 and margin sharpness 0.563 (opposite to expectation), punctate foci 0.487 (no signal). Per-split AUCs are consistent. The echogenicity ratio correlates −0.78 with the anechoic fraction: it measures fluid, not tissue echogenicity.
 - **Solid-part echogenicity (run J)**: computing the echogenicity ratio over the non-fluid pixels removes the reversed direction but adds no signal; seven features are slightly worse than six (test interval excludes zero by a hair). Run I's six features stay the default (`CLINICAL_EXCLUDE`).
 - **Rich format with TI-RADS features (run K)** is as good as decimal (run I): validation +0.008, test −0.003 (intervals include zero), calibration −0.027 (interval excludes zero). Training was stable, so the weak rich runs without TI-RADS features (H) were not caused by prompt length alone. Decimal stays the default because it is equal or better and four times faster (132 vs 36 minutes).
+- **Qwen2.5-7B with a lower LR and the TI-RADS features (run L) is clearly worse than 1.5B** (test 0.693 vs 0.804; intervals exclude zero on all splits). The lower LR calmed the swings in sensitivity (0.85 → 0.30 → 0.31 → 0.46 → 0.58) but gradient norms still reached 100–200, and validation AUC was still creeping up when the LR had decayed to zero (0.691 → 0.736 → 0.742 → 0.751 → 0.753). The TI-RADS features, which lift 1.5B by 0.05, give 7B nothing (L vs C, intervals include zero), and the gap between validation (0.751) and calibration/test (0.71/0.69) is larger than for any 1.5B run. Within this setup (QLoRA on Q/V, 5 epochs, ~2k training prompts) a larger backbone does not help; 1.5B stays the main model.
 - **Run-to-run variation**: a repeat of run H with the same settings and seed (only MAX_LENGTH 1536 instead of 1024, i.e. more padding) gave 0.717 / 0.682 / 0.698 instead of 0.732 / 0.711 / 0.744. Its files were overwritten on Drive and the notebook was not kept; the numbers come from the executed notebook output. Differences of up to ~0.05 between single runs can therefore come from training noise alone.
 - **LTT certifies nothing in any run under the planned procedure.** Best tail: run E, lowest 15% of calibration with 1 cancer out of 78; at threshold 0.20, 90 nodules with 3 cancers (1 error would need ≥ 93 nodules, 3 errors ≥ 153).
 - **Exploratory miss-rate rule** (cancers sent to auto-benign ≤ 5%): the test miss rate ranges from 2.6% to 8.6% across runs (run D: 8.6% at t = 0.16), so a single run can exceed the target (run G: t = 0.17, test miss rate 0.7% with 7.8% automated).
@@ -93,6 +97,7 @@ Mondrian, α = 0.10 for benign and 0.05 for malignant nodules (at most ~5% of ca
 | I | 0.941 | 18.3% | 11.3% | 22.8% | 22.0% | 58.9% |
 | J | 0.914 | 24.7% | 12.0% | 22.4% | 27.6% | 53.0% |
 | K | 0.954 | 16.2% | 9.9% | 21.5% | 21.3% | 62.3% |
+| L | 0.908 | 14.6% | 21.9% | 18.5% | 33.3% | 66.9% |
 
 - Marginal coverage holds (α = 0.10: 0.90–0.92; α = 0.05: 0.94–0.95), but it is carried by the benign majority: at α = 0.10 only 70–86% of cancers are covered.
 - Mondrian gives a guarantee on missed cancers (like the miss-rate rule) for about a fifth of the nodules, but the auto-benign sets still hold 10–17% cancers, so it does not meet R1 (≤ 5% cancers among auto-benign calls). This is why LTT certifies nothing while split CP "works".

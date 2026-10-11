@@ -10,3 +10,4 @@ Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_rich_corr95,Qwen/Qwen2.5-1.5B,v2,0.95,,
 Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_rich_corr95_clin6,Qwen/Qwen2.5-1.5B,v2,0.95,True,rich,0.0002,qv,132.4,0.8031369815,0.7846700084,0.8005382775,0.09,0.0263157895
 Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_zscore_corr95,Qwen/Qwen2.5-1.5B,v2,0.95,,zscore,,,36.9,0.7291739282,0.7558800848,0.7593623482,0.21,0.0592105263
 Qwen2.5-7B_f16_e5_s42_pooled_seed42_v2_corr95,Qwen/Qwen2.5-7B,v2,0.95,,decimal,,,90.2,0.7083304287,0.7052246,0.7134017298,0.09,0.0263157895
+Qwen2.5-7B_f16_e5_s42_pooled_seed42_v2_corr95_clin6_lr5e-5,Qwen/Qwen2.5-7B,v2,0.95,True,decimal,5e-05,qv,122.5,0.750644824,0.7121971596,0.6933198381,0.13,0.0460526316
