@@ -41,6 +41,7 @@ No setting certifies the 5% auto-benign rule; the lowest 15% of calibration hold
 | M | Qwen2.5-1.5B, seed 1 (repeat of I) | v2 + 6 TI-RADS features | 0.95 | decimal | 0.771 | 0.777 | 0.768 | 37 |
 | N | Qwen2.5-1.5B, seed 2 (repeat of I) | v2 + 6 TI-RADS features | 0.95 | decimal | 0.787 | 0.794 | 0.783 | 37 |
 | O | Qwen2.5-1.5B, seed 1 (repeat of D) | v2 | 0.95 | decimal | 0.706 | 0.695 | 0.712 | 36 |
+| P | Qwen2.5-1.5B, seed 2 (repeat of D) | v2 | 0.95 | decimal | 0.723 | 0.715 | 0.713 | 36 |
 | G | Llama-2-7B, LR 1e-4, LoRA all layers (Ra et al. settings), batch 4 × 4, MAX_LENGTH 512 | v2 | 0.95 | decimal | 0.705 | 0.709 | 0.731 | 182 |
 
 Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC difference:
@@ -62,6 +63,7 @@ Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC 
 | M − I | training seed 1 vs 42, same settings | [−0.057, −0.013] | [−0.058, −0.014] |
 | M − D | + TI-RADS features, seed 1 vs D's seed 42 | [−0.009, +0.058] | [−0.022, +0.051] |
 | M − O | + TI-RADS features, both seed 1 | [+0.043, +0.121] | [+0.013, +0.098] |
+| N − P | + TI-RADS features, both seed 2 | [+0.041, +0.116] | [+0.026, +0.112] |
 | L − C | + TI-RADS features and LR 5e-5, both Qwen2.5-7B | [−0.031, +0.047] | [−0.062, +0.023] |
 
 Findings:
@@ -78,6 +80,16 @@ Findings:
 - **Qwen2.5-7B with a lower LR and the TI-RADS features (run L) is clearly worse than 1.5B** (test 0.693 vs 0.804; intervals exclude zero on all splits). The lower LR calmed the swings in sensitivity (0.85 → 0.30 → 0.31 → 0.46 → 0.58) but gradient norms still reached 100–200, and validation AUC was still creeping up when the LR had decayed to zero (0.691 → 0.736 → 0.742 → 0.751 → 0.753). The TI-RADS features, which lift 1.5B by 0.05, give 7B nothing (L vs C, intervals include zero), and the gap between validation (0.751) and calibration/test (0.71/0.69) is larger than for any 1.5B run. Within this setup (QLoRA on Q/V, 5 epochs, ~2k training prompts) a larger backbone does not help; 1.5B stays the main model.
 - **Seed repeat of run I (run M, seed 1)**: 0.771 / 0.777 / 0.768, i.e. 0.024–0.035 below seed 42 on every split, and the paired intervals exclude zero. The training seed alone moves the AUC by about 0.03, as much as several of the effects above. Against run D (no TI-RADS features, seed 42), seed 1 is still higher (+0.014 to +0.025) but the intervals include zero, so the TI-RADS gain for the LLM has to be judged on averages over seeds, with run D repeated as well. The average of the two seeds' probabilities gives 0.787 / 0.802 / 0.792 (the two runs correlate 0.91).
 - **Three seeds of the best setting (runs I, M, N; seeds 42, 1, 2)**: validation 0.784 ± 0.012, calibration 0.794 ± 0.018, test 0.785 ± 0.018 (mean ± SD). Seed 42 was the upper end. This mean, not run I alone, is the number to report; the gap to XGBoost with the same features (test 0.835) is about 0.05, not 0.027. The TI-RADS gain for the LLM is confirmed with matched seeds: seed 1 with vs without the features (runs M and O) differs by +0.065 / +0.082 / +0.056 (intervals exclude zero on every split); averaging seeds 42 and 1 on each side gives 0.787 / 0.802 / 0.792 with the features vs 0.741 / 0.742 / 0.746 without (test interval [+0.011, +0.080]). Run D without TI-RADS features also varies by seed (0.754 with seed 42, 0.712 with seed 1).
+- **TI-RADS features over three matched seeds (42, 1, 2)**:
+
+  | | val | cal | test |
+  |---|---|---|---|
+  | with TI-RADS features (I, M, N), mean ± SD | 0.785 ± 0.012 | 0.794 ± 0.017 | 0.785 ± 0.018 |
+  | without (D, O, P), mean ± SD | 0.727 ± 0.022 | 0.721 ± 0.029 | 0.726 ± 0.024 |
+  | paired difference, mean (smallest) | +0.058 (+0.045) | +0.074 (+0.059) | +0.059 (+0.050) |
+  | 3-seed average of probabilities, difference [95% CI] | +0.054 [+0.018, +0.092] | +0.067 [+0.033, +0.100] | +0.055 [+0.019, +0.094] |
+
+  The gain is positive for every seed and split (at least +0.045) and each matched pair's test interval excludes zero. Run D (seed 42) was the best of the three runs without the features, so comparing single runs I and D understated nothing: the seed-averaged gain is about +0.06.
 - **Run-to-run variation**: a repeat of run H with the same settings and seed (only MAX_LENGTH 1536 instead of 1024, i.e. more padding) gave 0.717 / 0.682 / 0.698 instead of 0.732 / 0.711 / 0.744. Its files were overwritten on Drive and the notebook was not kept; the numbers come from the executed notebook output. Differences of up to ~0.05 between single runs can therefore come from training noise alone.
 - **LTT certifies nothing in any run under the planned procedure.** Best tail: run E, lowest 15% of calibration with 1 cancer out of 78; at threshold 0.20, 90 nodules with 3 cancers (1 error would need ≥ 93 nodules, 3 errors ≥ 153).
 - **Exploratory miss-rate rule** (cancers sent to auto-benign ≤ 5%): the test miss rate ranges from 2.6% to 8.6% across runs (run D: 8.6% at t = 0.16), so a single run can exceed the target (run G: t = 0.17, test miss rate 0.7% with 7.8% automated).
@@ -105,6 +117,7 @@ Mondrian, α = 0.10 for benign and 0.05 for malignant nodules (at most ~5% of ca
 | I | 0.941 | 18.3% | 11.3% | 22.8% | 22.0% | 58.9% |
 | J | 0.914 | 24.7% | 12.0% | 22.4% | 27.6% | 53.0% |
 | K | 0.954 | 16.2% | 9.9% | 21.5% | 21.3% | 62.3% |
+| P | 0.941 | 12.8% | 16.1% | 15.5% | 29.4% | 71.7% |
 | O | 0.967 | 12.8% | 8.9% | 13.0% | 40.4% | 74.2% |
 | N | 0.928 | 21.9% | 11.5% | 20.3% | 23.6% | 57.8% |
 | M | 0.914 | 19.6% | 15.1% | 19.2% | 26.2% | 61.2% |
