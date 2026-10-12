@@ -123,9 +123,9 @@ Mondrian, α = 0.10 for benign and 0.05 for malignant nodules (at most ~5% of ca
 | M | 0.914 | 19.6% | 15.1% | 19.2% | 26.2% | 61.2% |
 | L | 0.908 | 14.6% | 21.9% | 18.5% | 33.3% | 66.9% |
 
-- Marginal coverage holds (α = 0.10: 0.90–0.92; α = 0.05: 0.94–0.95), but it is carried by the benign majority: at α = 0.10 only 70–86% of cancers are covered.
+- Marginal coverage holds (α = 0.10: 0.88–0.93; α = 0.05: 0.93–0.97 across runs A–P), but it is carried by the benign majority: at α = 0.10 only 66–92% of cancers are covered.
 - Mondrian gives a guarantee on missed cancers (like the miss-rate rule) for about a fifth of the nodules, but the auto-benign sets still hold 10–17% cancers, so it does not meet R1 (≤ 5% cancers among auto-benign calls). This is why LTT certifies nothing while split CP "works".
-- Cancer coverage is 0.90–0.94 in runs A–F, below the 0.95 target (G: 0.954, H: 0.987). All runs share one calibration and one test draw, so this is a single realization, not six independent failures; other random splits are needed to separate chance from a systematic gap.
+- Cancer coverage is below the 0.95 target in 12 of 16 runs. All runs share one calibration and one test draw, so this is a single realization, not independent failures. Re-splitting calibration + test 4,000 times with the model fixed (`conformal_checks.txt`) gives an average cancer coverage of 0.950–0.951 for every model checked: the guarantee holds and our split was unlucky by about one SD.
 
 Notes:
 

@@ -5,22 +5,42 @@
 \label{sec:disc-ltt}
 
 The triage layer works as designed, and its statistical code reproduces the worked example of the
-design exactly. What it lacks is a score that ranks the nodules well enough. Two quantities decide
-whether an auto-benign group can be certified at 5\%:
+design exactly. Two quantities decide whether an auto-benign group can be certified at 5\%:
 
 \begin{itemize}
   \item \textbf{Purity:} how few cancers fall among the lowest-scored nodules. This depends on the
         model.
   \item \textbf{Size:} how many nodules that group contains in the calibration set. With 524
-        calibration nodules, a 15\% tail has 78 nodules; LTT needs 93 if one of them is
-        malignant and 59 if none is.
+        calibration nodules, a 15\% tail has 78 nodules; LTT needs 59 if none is malignant, 93 if
+        one is and 124 if two are.
 \end{itemize}
 
-The best language model (run E) has the purity in its lowest 78 nodules but not the size. XGBoost,
-with 2 to 11 cancers among its 78 lowest-scored nodules, is at best in the same position. So there are two levers: a model whose low-score tail is cleaner, and a
-larger calibration set. Lowering the requirement is a third: the miss-rate variant and Mondrian
-split conformal prediction show that a guarantee of a different kind, on the share of cancers
-missed rather than on each benign call, is already within reach for about a fifth of the nodules.
+No model reaches both. The best language-model tail (run E) has the purity in its lowest 78
+nodules but not the size; the best setting averaged over seeds has 7 cancers there. XGBoost with
+the TI-RADS-motivated features, the strongest model in this work (test AUC 0.835), has 2 cancers
+among its lowest 78 and 3 among its lowest 104, and is still not certified. The requirement is
+not too strict in a statistical sense: it is what 5\% with 95\% confidence means on a few hundred
+nodules. A cleaner tail, as a model with AUC of about 0.9 or more would give, or a larger
+calibration set are the two ways to reach it.
+
+The experiments show a third lever, in the procedure itself. The planned fixed sequence starts at
+the strictest candidate, where only a handful of nodules fall, and stops at the first failure.
+For the auto-malignant side of XGBoost this blocks a threshold that would pass on its own. A
+sequence that starts where the evidence is, for example candidates at quantiles of the validation
+scores ordered by their validation $p$-values, keeps the guarantee and is the natural design for a
+confirmatory study (Chapter~\ref{ch:future}).
+
+Lowering the requirement is a fourth lever. The miss-rate variant and Mondrian split conformal
+prediction give a guarantee of a different kind, on the share of cancers missed rather than on
+each benign call, and both hold: over 4,000 re-splits of calibration and test, the Mondrian
+coverage of cancers averages 0.950--0.951, as the theory says. But the group they call benign
+still contains about 10\% cancers for the language model and 6\% for XGBoost, against a 35\%
+prevalence. In ACR TI-RADS terms, a 5--20\% risk is that of a TR4 nodule, for which FNA is still
+recommended above a size threshold~\citep{tessler2017}. These rules are statistically valid, but
+they would not justify skipping a biopsy: \emph{a valid guarantee is not the same as a safe
+decision}. Which guarantee is clinically meaningful depends on how a rule will be used, and a
+guarantee of the weaker kind should be presented with the share of cancers it leaves among its
+benign calls.
 
 The errors that block the guarantee are stable. Most wrong benign calls stay wrong under noise
 and under feature removal, so asking the model again does not reveal them. One possible reason is
@@ -32,10 +52,23 @@ hypothesis; it has not been tested here.
 \section{What the language model adds}
 \label{sec:disc-llm}
 
-The language model learns from the prompts, and it improves when the features improve. It also
-appears to use the size of the numbers, not only their order (Section~\ref{sec:results-format}). But with the
-same features it stays about 0.05 AUC behind XGBoost, and so far nothing shows that it uses the
+The language model learns from the prompts, and it improves when the features improve: by about
+0.05 AUC with the revised extraction and by about 0.06 with the TI-RADS-motivated features, the
+latter confirmed over three matched seeds. It appears to use the size of the numbers, not only
+their order (Section~\ref{sec:results-format}), and plain-language descriptions of the values do
+not help it.
+
+Against XGBoost on the same features it stays about 0.05 AUC behind, and the fusion experiment
+(Section~\ref{sec:results-fusion}) answers the sharper question of whether it knows something
+XGBoost does not: it does not. A stacker given both scores puts all its weight on XGBoost, and the
+two models rank the nodules almost as similarly as two training runs of the language model rank
+them. In this setting the language model is a slower, noisier and weaker route to the ranking a
+tabular model finds directly. Nothing in the experiments indicates that it uses the
 \emph{names} of the features, which is the motivation of Ra et al.
+
+This conclusion is limited to what the language model was given: the same numbers a tabular model
+sees. Where an LLM could add information is in inputs a tabular model cannot use, such as the
+text of radiology reports or the clinical history.
 
 Ra et al.\ report that their language model beats all classical baselines. Several points of their
 evaluation make this comparison weaker than it looks:
@@ -56,16 +89,17 @@ evaluation make this comparison weaker than it looks:
   \item \textbf{Labels.} Their labels are BI-RADS categories (3 benign, 4--6 malignant), that is a
         radiologist's assessment of the image, not a biopsy result.
   \item \textbf{Size and uncertainty.} The internal test set has 235 images and the external one
-        about 55 after half of INbreast was used for retraining. No intervals are reported, and
-        the model was trained for over 500 epochs and selected on validation.
+        about 55 after half of INbreast was used for retraining. No intervals are reported, a
+        single run is shown, and the model was trained for over 500 epochs and selected on
+        validation. In this work the seed alone moved the test AUC by up to 0.036, more than most
+        of the differences in their tables.
 \end{itemize}
 
-The results of this thesis are in line with a cautious reading of theirs: a language model can
-classify radiomics prompts at about the level of classical models, and a clear advantage remains
-to be shown. With their backbone and training settings on TN3K (run G: Llama-2-7B, learning rate
-$10^{-4}$, LoRA on all linear layers, 16 features instead of 8), the test AUC is 0.731, below
-Qwen2.5-1.5B (0.754) and XGBoost with the same features (0.805). Two steps can test the claim directly: censoring the feature names, and giving the
-model plain-language meanings of the features (Chapter~\ref{ch:future}).
+With their backbone and training settings on TN3K (run G: Llama-2-7B, learning rate $10^{-4}$,
+LoRA on all linear layers, 16 features instead of 8), the test AUC is 0.731, below Qwen2.5-1.5B
+(0.754) and XGBoost with the same features (0.805). The results of this thesis support a cautious
+reading of theirs: a language model can classify radiomics prompts, but below a properly evaluated
+tabular model and without adding information to it.
 
 \section{Limitations}
 \label{sec:disc-limitations}
@@ -76,17 +110,30 @@ model plain-language meanings of the features (Chapter~\ref{ch:future}).
   \item \textbf{Ultrasound images.} Brightness depends on the device, its settings and the
         operator. Per-image rescaling removes part of this variation, and with it part of the
         information on absolute echogenicity.
-  \item \textbf{Clinical signs not captured.} Several TI-RADS signs~\citep{tessler2017} are not
-        measured by the features: echogenic foci (microcalcifications), margin details, a
-        taller-than-wide shape in the transverse plane, and echogenicity relative to the
-        surrounding thyroid tissue.
+  \item \textbf{Clinical signs approximated.} The TI-RADS-motivated features are heuristics, not
+        expert ratings. Echogenicity relative to thyroid tissue and echogenic foci are not
+        captured well, and whether a view is transverse is unknown.
   \item \textbf{Patient overlap.} The pooled split is drawn at image level, so the absolute test
-        metrics are likely optimistic for new patients (Section~\ref{sec:data-patients}).
-  \item \textbf{Single runs.} Each setting was trained once, with one seed. Differences below
-        about 0.02 AUC are within seed-to-seed variation.
-  \item \textbf{Hyperparameters.} The learning rate was chosen for the 1.5B model and reused for
-        Qwen2.5-7B; Llama-2-7B used the settings of Ra et al.\ but 5 epochs instead of 500;
-        XGBoost was not tuned.
+        metrics are likely optimistic for new patients (Section~\ref{sec:data-patients}). The
+        conformal guarantees remain valid for new images from the same pool, not for new
+        patients.
+  \item \textbf{Single runs.} Apart from the seed repeats of the main comparison, each setting was
+        trained once. The seed alone moves the test AUC by up to about 0.04, so single-run
+        differences of that size are not interpreted.
+  \item \textbf{Intervals.} The bootstrap intervals hold the trained model fixed and resample
+        images, not patients; they omit training noise and patient clustering and are somewhat
+        too narrow. Many comparisons were made without a multiplicity correction; the main
+        findings hold across seeds, but borderline single intervals should not be over-read.
+  \item \textbf{Choices informed by results.} Dropping the seventh TI-RADS feature, keeping the
+        decimal format and the validation-ordered LTT were decided after seeing calibration or
+        test results. The main conclusions do not depend on these choices.
+  \item \textbf{Hyperparameters.} The learning rate was chosen for the 1.5B model. The 7B Qwen
+        model was tried at two learning rates, and Llama-2-7B used the settings of Ra et al.\ but
+        5 epochs instead of 500. XGBoost was not tuned.
+  \item \textbf{Prevalence.} With 35\% cancers, TN3K is a referral (FNA) population. Risks
+        defined among the automatic decisions, such as $R_1$, depend on prevalence and would be
+        easier to meet, and different, in a screening population.
   \item \textbf{One dataset.} All results come from TN3K.
-  \item \textbf{Exploratory analyses.} The miss-rate variant was added after the main results.
+  \item \textbf{Exploratory analyses.} The miss-rate variant, the validation-ordered LTT and the
+        re-split analysis were added after the main results.
 \end{itemize}

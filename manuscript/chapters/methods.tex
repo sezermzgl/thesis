@@ -143,7 +143,7 @@ is measured at $-$1.140. \dots
 
 The value is the z-score from Section~\ref{sec:methods-selection}, written with three decimals.
 Four formats were compared (Table~\ref{tab:methods-formats}); a fifth is implemented but has not
-been run yet (Section~\ref{sec:future-running}).
+been run yet (Section~\ref{sec:future-prompts}).
 
 \begin{table}[ht]
   \centering
@@ -197,7 +197,7 @@ settings.
     LoRA            & rank 16, $\alpha = 32$, dropout 0.05 & rank 16 \\
     LoRA placement  & attention Q and V (all linear layers in one run) & all layers \\
     loss            & class-weighted cross-entropy & binary cross-entropy \\
-    optimiser       & AdamW, learning rate $2 \times 10^{-4}$, cosine schedule, 5\% warm-up & AdamW, $10^{-4}$, cosine schedule \\
+    optimiser       & AdamW, learning rate $2 \times 10^{-4}$ (Llama-2-7B: $10^{-4}$; one Qwen2.5-7B run: $5 \times 10^{-5}$), cosine schedule, 5\% warm-up & AdamW, $10^{-4}$, cosine schedule \\
     batch           & 8 $\times$ 2 accumulation steps (7B: 4 $\times$ 4) & not stated \\
     epochs          & 5 & over 500 \\
     model selection & epoch with the best validation AUC & best on validation \\
@@ -223,6 +223,13 @@ same mRMR order, using 8, 16, 32 or all features. Its settings were fixed and no
 of depth 3, learning rate 0.05, and class weighting. The first experiments also used logistic
 regression, a random forest and a support vector machine. XGBoost is a benchmark only; the
 language model remains the model of interest.
+
+\paragraph{Fusion.} To test whether the language model carries information that XGBoost does not
+use, XGBoost is also trained on exactly the features of the best language-model setting, and the
+two models' probabilities are combined in three ways: their mean, the mean of their ranks, and a
+logistic regression on the two logits (stacking). The stacker is fitted on the validation split,
+so calibration and test stay untouched and the conformal layer can be applied to the combined
+score as to any other (\texttt{experiments/hybrid\_xgb\_llm.py}).
 
 \section{Conformal triage layer}
 \label{sec:methods-triage}
@@ -261,7 +268,12 @@ null hypothesis ``the true risk exceeds $\alpha_1$'' is tested with the binomial
 \]
 Candidates are fixed in advance and tested from the safest to the most permissive. Testing stops
 at the first $p(t) > \delta$, and the last certified candidate is kept (fixed-sequence testing,
-which needs no multiplicity correction). $u$ is chosen the same way with $\alpha_2$. With
+which needs no multiplicity correction, because the order does not depend on the calibration
+data). The binomial test is valid because, given $n$, the calibration nodules with $s \le t$ are
+an independent sample of the nodules below the threshold, so the number of cancers among them is
+$\mathrm{Bin}(n, R_1(t))$. The guarantee is of the high-probability kind: with probability at least
+$1 - \delta$ over the calibration draw, the true risk of the chosen threshold is at most
+$\alpha_1$; the share observed on one test set can still exceed it. $u$ is chosen the same way with $\alpha_2$. With
 $\delta = 0.05$ for each risk, both guarantees hold together with probability at least
 $1 - 2\delta = 0.90$ over the draw of the calibration set, provided calibration and future nodules
 are exchangeable (Section~\ref{sec:data-official}). If no candidate is certified, that side of the
@@ -272,7 +284,9 @@ auto-benign group needs at least 59 nodules with no cancer, 93 nodules with one 
 nodules with three cancers to be certified.
 
 For the softmax probability the candidates are $t \in \{0.05, 0.10, \dots, 0.45\}$ and
-$u \in \{0.95, 0.90, \dots, 0.55\}$.
+$u \in \{0.95, 0.90, \dots, 0.55\}$. Any order fixed without the calibration data keeps the
+guarantee; as an exploratory variant, the candidates were also ordered by their $p$-values on the
+validation split (Section~\ref{sec:results-ltt}).
 
 \subsection{Uncertainty scores}
 \label{sec:methods-scores}
@@ -305,7 +319,9 @@ set when its nonconformity is below a threshold calibrated so that the true labe
 for at least $1-\alpha$ of the nodules. A set with one label counts as an automatic decision; a set
 with both labels sends the nodule to a clinician. In the \emph{marginal} form one threshold serves
 both labels; in the class-conditional (\emph{Mondrian}) form each label is calibrated on its own
-nodules, so the guarantee holds for benign and malignant nodules separately. On the official split
+nodules, so the guarantee holds for benign and malignant nodules separately. Unlike LTT, these
+guarantees hold in expectation over the calibration and test draws, not with a stated
+probability. On the official split
 both forms were run at $\alpha = 0.10$. On the pooled split the marginal form was run at
 $\alpha = 0.10$ and $0.05$, and the Mondrian form with $\alpha = 0.10$ for benign and $0.05$ for
 malignant nodules: then at most about 5\% of cancers receive the single label ``benign'', a
@@ -318,8 +334,10 @@ cancers \emph{among} the single-label benign sets, which is what $R_1$ requires.
 $R_1$ is a statement about each auto-benign decision. A weaker, programme-level alternative bounds
 the \emph{miss rate}: the share of all cancers sent to auto-benign, as in conformal risk
 control~\citep{angelopoulos2024crc}. The same binomial test is used with $n$ equal to the number of
-calibration cancers, on the grid $t \in \{0.01, 0.02, \dots, 0.50\}$, at 5\% and 10\%. This
-variant was added after the main results and is reported as exploratory.
+calibration cancers, on the grid $t \in \{0.01, 0.02, \dots, 0.50\}$, at 5\% and 10\%. It is a valid
+LTT procedure with a different risk: the number of calibration cancers below $t$ is
+$\mathrm{Bin}(n, m(t))$, where $m(t)$ is the miss rate. It was added after the main results, so it
+is reported as exploratory.
 
 \section{Evaluation protocol}
 \label{sec:methods-eval}
@@ -336,6 +354,15 @@ variant was added after the main results and is reported as exploratory.
   \item \textbf{Separating errors.} How well a confidence score separates correct from incorrect
         predictions is measured by the AUC of that score for the event ``prediction correct''.
   \item \textbf{Exchangeability.} The classifier two-sample test of Section~\ref{sec:data-official}.
+  \item \textbf{Training noise.} The main comparison (with and without the TI-RADS-motivated
+        features) is repeated with three seeds (42, 1, 2), matched across the two settings, and
+        reported as mean $\pm$ standard deviation, per-seed paired differences, and the interval
+        of the seed-averaged probabilities. The bootstrap intervals alone do not cover this
+        variation, because they hold the trained model fixed.
+  \item \textbf{Conformal coverage over re-splits.} A single test split shows one realisation of
+        a guarantee that holds on average. With the model fixed, calibration and test are pooled
+        and randomly re-split 4,000 times (same sizes and class proportions), and the conformal
+        thresholds are recomputed each time (\texttt{experiments/conformal\_checks.py}).
 \end{itemize}
 
-Unless stated otherwise, every run uses seed 42 and a single training run per setting.
+Unless stated otherwise, a run uses seed 42 and is a single training run.

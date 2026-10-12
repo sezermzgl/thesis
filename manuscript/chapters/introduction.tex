@@ -31,7 +31,7 @@ queried repeatedly to measure how stable they are.
              and does agreement across perturbed queries help?
 \end{enumerate}
 
-\section{Contributions so far}
+\section{Contributions}
 
 \begin{itemize}
   \item An adaptation of the radiomics-to-language-model pipeline of Ra et al.\ to thyroid
@@ -39,12 +39,20 @@ queried repeatedly to measure how stable they are.
   \item A data audit of TN3K: the official calibration and test sources are not exchangeable, and
         the original feature extraction had three defects (few grey levels, size in pixels,
         multi-component masks). A pooled split and a revised extraction address them.
-  \item Evidence that better features raise the language model's test AUC from 0.70 to 0.75, indications
-        that the model uses the magnitude of the values, and that it stays about 0.05 below XGBoost on
-        the same features.
-  \item A negative result with its explanation: no automatic decision could be certified, because
-        the model's errors are stable and its cleanest low-risk groups are too small for the
-        required evidence. Perturbation votes do not beat the softmax probability.
+  \item Six features computed from TI-RADS signs that are missing from standard radiomics. They
+        raise the language model's test AUC by about 0.06 over three matched seeds, more than any
+        other change, and XGBoost's by 0.026.
+  \item A controlled comparison with a tabular model: with the same features the language model
+        stays about 0.05 AUC below XGBoost, a fusion of the two shows it adds no information, and
+        neither larger backbones, the settings of Ra et al.\ nor plain-language prompts change
+        this.
+  \item A negative result with its explanation: no automatic decision could be certified at the
+        planned error rates, for the language model or for XGBoost, because the cleanest low-risk
+        groups are too small or not clean enough, and because the planned order of tests stops at
+        near-empty thresholds. Perturbation votes do not beat the softmax probability.
+  \item A map of what is attainable instead: guarantees on missed cancers hold, verified over
+        4,000 re-splits, but leave about 10\% cancers among the automatic benign calls, a risk at
+        which biopsy is still recommended.
 \end{itemize}
 
 \section{Structure of the thesis}

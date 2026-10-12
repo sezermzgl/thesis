@@ -2,9 +2,11 @@
 \label{ch:results}
 
 The experiments were run in the order of Table~\ref{tab:results-timeline}, and each answered a
-question raised by the one before. This chapter is organised by question instead. All numbers
-come from single training runs with seed 42; differences below about 0.02 AUC between two runs are
-within the variation seen between repeated runs (Section~\ref{sec:results-llm}).
+question raised by the one before. This chapter is organised by question instead. Most settings
+were trained once, with seed 42. Training noise turned out to be large
+(Section~\ref{sec:results-seeds}), so the main comparison, with and without the TI-RADS-motivated
+features, was repeated with three seeds, and single-run differences below about 0.03--0.05 AUC are
+not interpreted.
 
 \section{Timeline of experiments}
 \label{sec:results-timeline}
@@ -12,8 +14,8 @@ within the variation seen between repeated runs (Section~\ref{sec:results-llm}).
 \begin{table}[ht]
   \centering
   \small
-  \caption{Experiments so far. Records are folders in \texttt{runs/} and sections of
-           \texttt{reports/conformal\_triage\_report.md}.}
+  \caption{Experiments. Records are folders in \texttt{runs/}; the consolidated report is
+           \texttt{reports/consolidated\_report\_2026-10-12.md}.}
   \label{tab:results-timeline}
   \begin{tabular}{lp{4.3cm}p{6.2cm}}
     \toprule
@@ -25,7 +27,10 @@ within the variation seen between repeated runs (Section~\ref{sec:results-llm}).
     8 Oct  & Backbone sweep on the official split (Qwen2.5-1.5B retrained, Qwen2.5-7B) & 7B not better \\
     8 Oct  & Pooled split; image quality control; XGBoost & exchangeability restored; feature problems found \\
     8--9 Oct & v2 features; LLM runs A--F on the pooled split & v2 helps (+0.05 AUC); format and size results \\
-    9 Oct  & Llama-2-7B with the settings of Ra et al.\ (run G) & not better than Qwen2.5-1.5B \\
+    9 Oct  & Llama-2-7B with the settings of Ra et al.\ (run G); rich format (run H) & neither helps \\
+    9--10 Oct & TI-RADS-motivated features (runs I, J, K) & largest gain of all changes; seventh feature and rich format add nothing \\
+    11 Oct & Qwen2.5-7B at a lower learning rate, with TI-RADS features (run L) & clearly worse than 1.5B \\
+    12 Oct & Seed repeats with and without TI-RADS features (runs M--P); fusion with XGBoost; conformal checks & TI-RADS gain confirmed; the language model adds nothing to XGBoost; Mondrian coverage holds over re-splits \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -36,21 +41,23 @@ within the variation seen between repeated runs (Section~\ref{sec:results-llm}).
 Yes, to a moderate degree. On the official split, with eight v1 features, Qwen2.5-1.5B reached
 test AUC 0.672 (validation 0.704, calibration 0.707), against 0.648--0.663 for a logistic
 regression, a random forest and a support vector machine. A retrained copy of the same model gave
-0.667 on test, and its scores agreed closely with the first model (Spearman correlation 0.97), so
-the result does not depend on one training run. Validation and calibration AUCs above the test AUC
-are consistent with the shift described in Section~\ref{sec:data-official}.
+0.667 on test, and its scores agreed closely with the first model (Spearman correlation 0.97).
+Validation and calibration AUCs above the test AUC are consistent with the shift described in
+Section~\ref{sec:data-official}.
 
-Table~\ref{tab:results-llm} lists the runs on the pooled split. The best settings reach a test AUC
-of 0.75--0.76.
+Table~\ref{tab:results-llm} lists the runs on the pooled split. With the radiomics features alone
+the best settings reach a test AUC of 0.75--0.76; with the TI-RADS-motivated features, 0.785 on
+average over three seeds.
 
 \begin{table}[ht]
   \centering
   \small
   \setlength{\tabcolsep}{4pt}
-  \caption{Language-model runs on the pooled split (16 features, 5 epochs; learning rate
-           $2 \times 10^{-4}$ and LoRA on Q/V unless stated). Sensitivity at threshold 0.5 on
-           test. Run G uses the settings of Ra et al.: learning rate $10^{-4}$, LoRA on all
-           linear layers. (f): near-duplicate filter.}
+  \caption{Language-model runs on the pooled split (16 radiomics features, 5 epochs; learning rate
+           $2 \times 10^{-4}$, LoRA on Q/V and seed 42 unless stated). Sensitivity at threshold
+           0.5 on test. (f): near-duplicate filter; +T6, +T7: six or seven TI-RADS-motivated
+           features. Run G uses the settings of Ra et al.\ (learning rate $10^{-4}$, LoRA on all
+           linear layers); run L uses learning rate $5 \times 10^{-5}$.}
   \label{tab:results-llm}
   \begin{tabular}{llllrrrrr}
     \toprule
@@ -64,7 +71,15 @@ of 0.75--0.76.
     F & Qwen2.5-1.5B & v2 (f)        & percentile & 0.709 & 0.713 & 0.734 & 0.65 & 37 \\
     G & Llama-2-7B   & v2 (f)        & decimal    & 0.705 & 0.709 & 0.731 & 0.66 & 182 \\
     H & Qwen2.5-1.5B & v2 (f)        & rich       & 0.732 & 0.711 & 0.744 & 0.64 &  83 \\
-    I & Qwen2.5-1.5B & v2 (f) + TI-RADS & decimal & 0.795 & 0.812 & 0.804 & 0.65 & 36 \\
+    I & Qwen2.5-1.5B & v2 (f) +T6    & decimal    & 0.795 & 0.812 & 0.804 & 0.65 & 36 \\
+    J & Qwen2.5-1.5B & v2 (f) +T7    & decimal    & 0.786 & 0.802 & 0.781 & 0.39 & 37 \\
+    K & Qwen2.5-1.5B & v2 (f) +T6    & rich       & 0.803 & 0.785 & 0.801 & 0.64 & 132 \\
+    L & Qwen2.5-7B   & v2 (f) +T6    & decimal    & 0.751 & 0.712 & 0.693 & 0.56 & 123 \\
+    \midrule
+    M & I, seed 1    & v2 (f) +T6    & decimal    & 0.771 & 0.777 & 0.768 & 0.66 & 37 \\
+    N & I, seed 2    & v2 (f) +T6    & decimal    & 0.787 & 0.794 & 0.783 & 0.69 & 37 \\
+    O & D, seed 1    & v2 (f)        & decimal    & 0.706 & 0.695 & 0.712 & 0.69 & 36 \\
+    P & D, seed 2    & v2 (f)        & decimal    & 0.723 & 0.715 & 0.713 & 0.65 & 36 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -72,7 +87,30 @@ of 0.75--0.76.
 Training was unstable in several runs. In the early epochs validation sensitivity at 0.5 was
 sometimes close to 0 (all nodules called benign) and recovered later. Selecting the epoch by
 validation AUC hides this from the final AUC, but not from threshold-based measures such as
-sensitivity.
+sensitivity (run J ends at 0.39).
+
+\section{How large is the training noise?}
+\label{sec:results-seeds}
+
+Larger than the effects of most changes. The best setting (run I) was trained again with seeds 1
+and 2 (runs M and N), and the reference without TI-RADS features (run D) likewise (runs O and P).
+Only the initialisation of the adapters and the order of the training batches change; the split
+and the selected features stay the same.
+
+\begin{itemize}
+  \item The three seeds of the best setting give test AUC 0.804, 0.768 and 0.783: mean 0.785,
+        standard deviation 0.018. Seed 42 was the upper end. Runs M and I differ significantly on
+        every split (test interval $[-0.058, -0.014]$).
+  \item The three seeds without TI-RADS features give 0.754, 0.712 and 0.713; again seed 42 was
+        the best.
+  \item A repeat of run H with the same seed, where only the padding length differed, moved by
+        0.046 on test.
+\end{itemize}
+
+A paired bootstrap interval holds the trained model fixed and resamples nodules, so it does not
+contain this variation. Comparisons between single runs therefore understate the uncertainty, and
+the result that matters most for the thesis, the effect of the TI-RADS-motivated features, is
+reported over matched seeds (Section~\ref{sec:results-clinical}).
 
 \section{Do better features help?}
 \label{sec:results-features}
@@ -80,7 +118,7 @@ sensitivity.
 Yes, clearly. Runs B and D differ only in the feature set: the test AUC rises from 0.699 with v1
 to 0.754 with v2. The paired bootstrap interval for run A against run B is $[+0.013, +0.089]$ on
 test and $[+0.015, +0.090]$ on calibration, so the gain of about 0.05 is not a chance
-fluctuation.
+fluctuation of the test set.
 
 XGBoost shows the same picture (Table~\ref{tab:results-xgb}). With v1, adding features helps
 slowly; with v2, 16 features already give 0.78--0.81.
@@ -126,9 +164,10 @@ value means for the nodule does not help.
     \toprule
     comparison & what changes & calibration & test \\
     \midrule
-    E $-$ D & z-score wording      & $[-0.016, +0.022]$ & $[-0.017, +0.029]$ \\
-    F $-$ D & percentile values    & $[-0.075, -0.005]$ & $[-0.057, +0.022]$ \\
-    H $-$ D & rich format          & $[-0.074, -0.011]$ & $[-0.041, +0.023]$ \\
+    E $-$ D & z-score wording               & $[-0.016, +0.022]$ & $[-0.017, +0.029]$ \\
+    F $-$ D & percentile values             & $[-0.075, -0.005]$ & $[-0.057, +0.022]$ \\
+    H $-$ D & rich format                   & $[-0.074, -0.011]$ & $[-0.041, +0.023]$ \\
+    K $-$ I & rich format, with TI-RADS     & $[-0.049, -0.005]$ & $[-0.031, +0.022]$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -142,17 +181,21 @@ value means for the nodule does not help.
   \item The \emph{rich} format (run H) keeps the z-score and adds the percentile, a band
         (``lower than typical'') and what the value means (``meaning a less round, more irregular
         outline''). It does not help: test AUC 0.744 against 0.754, and 0.04 lower on calibration,
-        where the interval excludes zero. Validation AUC reached 0.719 after two epochs, faster
-        than run D, and then stayed at 0.73. The prompts are about 2.6 times as long (780 tokens at
-        most), and training took 83 minutes instead of 26. So far, plain-language meaning gives
-        the model nothing it does not already get from the numbers.
+        where the interval excludes zero. A repeat with the same seed gave 0.698.
+  \item With the TI-RADS-motivated features (run K against run I), the rich format is equal on
+        validation and test and slightly worse on calibration. Its prompts are up to three times
+        as long, and training took 132 minutes instead of 36. Training was stable, so the weak
+        rich runs without these features were not caused by prompt length alone.
 \end{itemize}
+
+Plain-language meaning gives the model nothing it does not already get from the numbers. The
+decimal format is kept.
 
 \section{Does a larger backbone help?}
 \label{sec:results-size}
 
-Not in the experiments so far: neither a larger Qwen model nor the backbone and settings of
-Ra et al.\ beat Qwen2.5-1.5B.
+No: neither a larger Qwen model, at two learning rates, nor the backbone and settings of Ra et al.\
+beat Qwen2.5-1.5B.
 
 \begin{itemize}
   \item On the official split, Qwen2.5-7B matched the 1.5B model: test AUC 0.669 with 8 features
@@ -163,35 +206,24 @@ Ra et al.\ beat Qwen2.5-1.5B.
         $10^{-4}$, LoRA on all linear layers), the test AUC is 0.731, again below run D. The
         paired intervals against run D are $[-0.070, -0.016]$ on calibration and
         $[-0.052, +0.007]$ on test; against Qwen2.5-7B (run C) they include zero.
+  \item With the TI-RADS-motivated features and a four times lower learning rate (run L),
+        Qwen2.5-7B reaches 0.693, far below the 1.5B model with the same features (run I, 0.804;
+        intervals exclude zero on every split).
 \end{itemize}
 
-The 7B training did not settle. Across the five epochs, validation sensitivity at threshold 0.5
-went 0.00, 0.01, 0.93, 0.04, 0.62; gradient norms reached 200; the best epoch by validation AUC
-was epoch 2. The selected model calls every test nodule benign at threshold 0.5 (sensitivity 0),
-although its ranking still has AUC 0.713. The learning rate of $2 \times 10^{-4}$, chosen for the
-1.5B model, is probably too high for 7B. ``Larger is worse'' is therefore confounded with ``larger
-was trained badly''. Run G trained more steadily at half the learning rate but also started
-badly: after epoch 2 it called every validation nodule benign (validation loss 1.21) before
-recovering to validation AUC 0.70--0.71 in epochs 4--5. It took 182 minutes on one L4 GPU,
-seven times as long as Qwen2.5-1.5B, for a lower AUC. A Qwen2.5-7B run at a lower learning rate
-would remove the remaining confound, but none of the evidence so far points to model size as the
-bottleneck.
+The first 7B training did not settle. Across the five epochs, validation sensitivity at threshold
+0.5 went 0.00, 0.01, 0.93, 0.04, 0.62; gradient norms reached 200; the best epoch by validation AUC
+was epoch 2, and the selected model calls every test nodule benign at 0.5 although its ranking
+still has AUC 0.713. The learning rate of $2 \times 10^{-4}$, chosen for the 1.5B model, was the
+obvious suspect, so run L used $5 \times 10^{-5}$. This calmed the swings (sensitivity 0.85, 0.30,
+0.31, 0.46, 0.58) but not the result: gradient norms still reached 100--200, validation AUC crept
+up to 0.753 while the learning rate decayed to zero, and calibration and test fell well below
+validation (0.712 and 0.693). The TI-RADS features, which lift the 1.5B model by about 0.06, gave
+Qwen2.5-7B nothing (run L against run C: test interval $[-0.062, +0.023]$). Run G took 182
+minutes on one L4 GPU, seven times as long as Qwen2.5-1.5B, for a lower AUC.
 
-\section{How does the language model compare with XGBoost?}
-\label{sec:results-xgb}
-
-XGBoost is better with the same features, by about 0.05 AUC (by 0.027 once the TI-RADS-motivated
-features of Section~\ref{sec:results-clinical} are added):
-
-\begin{itemize}
-  \item pooled split, 16 v2 features after filtering: XGBoost 0.805, language model 0.754
-        (run D);
-  \item official split, 8 v1 features: XGBoost 0.696, language model 0.667; with 16 features
-        XGBoost reaches 0.709.
-\end{itemize}
-
-The language model also gains less from more features. On the official split, XGBoost improved
-from 8 to 16 features while the 7B language model did not (0.669 and 0.666).
+Within this setup (QLoRA on Q and V, about 2,000 training prompts, 5 epochs), a larger backbone
+does not help, and Qwen2.5-1.5B stays the main model.
 
 \section{Do TI-RADS-motivated features help?}
 \label{sec:results-clinical}
@@ -220,11 +252,14 @@ shows each feature on its own, on the training split.
 \end{table}
 
 Three features behave as TI-RADS predicts, and the taller-than-wide ratio alone is as
-discriminative as the best single radiomics features. The echogenicity ratio points the wrong way,
-probably because it averages over the whole nodule: cystic nodules, mostly benign, are dark
-because of their fluid, while TI-RADS judges echogenicity on the solid part. Margin sharpness may
-measure contrast rather than blur, and the simple spot detector finds no signal for
-microcalcifications in speckled images.
+discriminative as the best single radiomics features. The echogenicity ratio points the wrong way:
+it correlates $-0.78$ with the anechoic fraction, so it mostly measures fluid. Cystic nodules,
+mostly benign, are dark because of their fluid, while TI-RADS judges echogenicity on the solid
+part. A seventh feature computed on the non-fluid pixels only (run J) removed the reversed
+direction but added no signal; with it the language model was slightly worse (test interval
+$[-0.043, -0.001]$ against run I), so the six-feature set is kept. Margin sharpness may measure
+contrast rather than blur, and the simple spot detector finds no signal for microcalcifications in
+speckled images.
 
 Added to the 16 radiomics features, the six features raise XGBoost from 0.805 to 0.831 on test
 (Table~\ref{tab:results-clinical-xgb}), with the same gain on validation and calibration. Adding the
@@ -250,19 +285,103 @@ that the radiomics features do not contain. The six features alone reach 0.775.
   \end{tabular}
 \end{table}
 
-The language model gains even more. With the same 22 features and the decimal format (run I), its
-test AUC rises from 0.754 to 0.804, with paired intervals $[+0.011, +0.080]$ on validation,
-$[+0.028, +0.093]$ on calibration and $[+0.015, +0.084]$ on test. The gap to XGBoost with the same
-features shrinks from about 0.05 to 0.027, and the language model now matches XGBoost on the
-radiomics features alone. Training also stayed stable: validation AUC was 0.744 after the first
-epoch and rose steadily to 0.795.
+The language model gains more. Because a single run can be off by 0.03--0.05
+(Section~\ref{sec:results-seeds}), the comparison was repeated with three matched seeds: each seed
+trains the model once with and once without the six features
+(Table~\ref{tab:results-clinical-seeds}).
+
+\begin{table}[ht]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \caption{Language model with and without the TI-RADS-motivated features, three matched seeds
+           (42, 1, 2). Mean $\pm$ standard deviation over seeds; the last row averages the three
+           seeds' probabilities per nodule and gives a 95\% paired bootstrap interval.}
+  \label{tab:results-clinical-seeds}
+  \begin{tabular}{lrrr}
+    \toprule
+    & val & cal & test \\
+    \midrule
+    with TI-RADS (I, M, N)        & $0.785 \pm 0.012$ & $0.794 \pm 0.017$ & $0.785 \pm 0.018$ \\
+    without (D, O, P)             & $0.727 \pm 0.022$ & $0.721 \pm 0.029$ & $0.726 \pm 0.024$ \\
+    difference per seed, mean (min) & $+0.058$ ($+0.045$) & $+0.074$ ($+0.059$) & $+0.059$ ($+0.050$) \\
+    seed-averaged, 95\% interval  & $[+0.018, +0.092]$ & $[+0.033, +0.100]$ & $[+0.019, +0.094]$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The gain is positive for every seed and every split, at least $+0.045$, and the test interval of
+each matched pair excludes zero (seed 42: $[+0.015, +0.084]$; seed 1: $[+0.013, +0.098]$; seed 2:
+$[+0.026, +0.112]$). Seed 42 gave the best run on both sides, so the single-run comparison of
+runs I and D (+0.050) did not overstate the gain: on average it is about $+0.06$, slightly more
+than for XGBoost. Training with the features was also steadier: validation AUC rose over the
+epochs in all three seeds.
+
+\section{How does the language model compare with XGBoost?}
+\label{sec:results-xgb}
+
+XGBoost is better with the same features, by about 0.05 AUC, and the language model adds nothing
+to it.
+
+\begin{itemize}
+  \item Official split, 8 v1 features: XGBoost 0.696, language model 0.667; with 16 features
+        XGBoost reaches 0.709 while the 7B language model stays at 0.666.
+  \item Pooled split, 16 v2 features after filtering: XGBoost 0.805, language model 0.754
+        (run D).
+  \item Pooled split, the same 22 features as run I: XGBoost 0.835, language model
+        $0.785 \pm 0.018$ over three seeds.
+\end{itemize}
+
+Run I alone (0.804) had suggested that the gap shrinks to 0.03 with the TI-RADS features; over
+seeds it stays near 0.05.
+
+\subsection{Fusion of the two models}
+\label{sec:results-fusion}
+
+A smaller AUC does not rule out that the language model carries information XGBoost misses. To
+test this, XGBoost was trained on exactly the 22 features of run I with the same preprocessing,
+and the two models' probabilities were combined (\texttt{experiments/hybrid\_xgb\_llm.py}). The
+language model is the average of its three seeds.
+
+\begin{table}[ht]
+  \centering
+  \caption{XGBoost, the language model and their combinations, on the 22 features of run I.
+           Stacking is a logistic regression on the two logits, fitted on validation only.}
+  \label{tab:results-fusion}
+  \begin{tabular}{lrrr}
+    \toprule
+    model & val & cal & test \\
+    \midrule
+    XGBoost                                  & 0.827 & 0.848 & \textbf{0.835} \\
+    language model, average of 3 seeds       & 0.792 & 0.803 & 0.793 \\
+    mean of the two probabilities            & 0.820 & 0.838 & 0.824 \\
+    mean of the two ranks                    & 0.819 & 0.837 & 0.824 \\
+    stacking                                 & 0.827 & 0.848 & 0.834 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{itemize}
+  \item The language model is below XGBoost on every split (test difference $-0.042$, interval
+        $[-0.067, -0.017]$).
+  \item Averaging the two is slightly worse than XGBoost alone (test $-0.011$, interval
+        $[-0.023, +0.001]$).
+  \item The stacker gives XGBoost a weight of 0.99 and the language model $-0.04$: it learns to
+        ignore the language model, and its AUC equals that of XGBoost.
+  \item The two models' probabilities correlate 0.87--0.88 on every split. Two seeds of the
+        language model correlate 0.91, so the language model differs from XGBoost hardly more
+        than from itself.
+\end{itemize}
+
+On these features the fine-tuned language model reproduces a weaker version of the tabular
+model's ranking and carries no information that XGBoost does not already use.
 
 \section{Can Learn-then-Test certify automatic decisions?}
 \label{sec:results-ltt}
 
-No. In none of the runs, with any score, did LTT certify a single automatic decision at
-$\alpha_1 = 5\%$ or $\alpha_2 = 20\%$. This section explains why, starting with the perturbation
-votes of the original design.
+No. In none of the runs, with any score, did the planned LTT procedure certify a single automatic
+decision at $\alpha_1 = 5\%$ or $\alpha_2 = 20\%$, and neither did it for XGBoost. This section
+explains why, starting with the perturbation votes of the original design.
 
 \subsection{Mixed perturbations push the model off its format}
 
@@ -276,11 +395,11 @@ uncertainty about the nodule.
 
 \subsection{Format-preserving votes are not better than softmax}
 
-With jitter and drop-one perturbations (run 2), the model stays in distribution: noise and dropping change
-5--12\% of the answers and the AUC of the perturbed queries stays within 0.02 of the base prompt.
-But the votes separate correct from incorrect predictions no better than the softmax probability
-(Table~\ref{tab:results-errsep}). Jitter votes are worse on calibration and test; drop votes are
-level with softmax.
+With jitter and drop-one perturbations (run 2), the model stays in distribution: noise and
+dropping change 5--12\% of the answers and the AUC of the perturbed queries stays within 0.02 of
+the base prompt. But the votes separate correct from incorrect predictions no better than the
+softmax probability (Table~\ref{tab:results-errsep}). Jitter votes are worse on calibration and
+test; drop votes are level with softmax.
 
 \begin{table}[ht]
   \centering
@@ -306,61 +425,68 @@ Between 56\% and 69\% of the base prompt's errors are unanimous: all ten queries
 wrong answer. Consistency measures how stable an answer is, not whether it is correct, and no vote
 threshold can separate these errors.
 
-\subsection{Nothing certified, on either split}
+\subsection{Nothing certified, for any model}
 
 Table~\ref{tab:results-ltt} shows the cleanest auto-benign group available in each setting. All
-are far from what LTT needs: 59 nodules without a cancer, or 93 with one
+are far from what LTT needs: 59 nodules without a cancer, 93 with one or 124 with two
 (Section~\ref{sec:methods-triage}).
 
 \begin{table}[ht]
   \centering
   \small
-  \caption{Cleanest auto-benign groups on calibration.}
+  \caption{Cleanest auto-benign groups on calibration (524 nodules, 182 cancers on the pooled
+           split).}
   \label{tab:results-ltt}
-  \begin{tabular}{lp{7.5cm}}
+  \begin{tabular}{p{4.2cm}p{7.4cm}}
     \toprule
     setting & best auto-benign group \\
     \midrule
     official, jitter votes  & $v = 0$: 165 nodules, 19.4\% malignant \\
     official, drop votes    & $v = 0$: 175 nodules, 20.0\% malignant \\
     official, softmax       & not certified at any candidate \\
-    pooled, best LLM (run E) & lowest 15\%: 78 nodules, 1 malignant; $P \le 0.20$: 90 nodules, 3 malignant \\
-    pooled, XGBoost         & lowest 15\%: 78 nodules, 2--11 malignant depending on the feature set \\
-    pooled, LLM + TI-RADS (run I) & lowest 15\%: 78 nodules, 8 malignant; $P \le 0.05$: 4 nodules, none malignant \\
+    pooled, run E           & lowest 15\%: 78 nodules, 1 malignant; $P \le 0.20$: 90 nodules, 3 malignant \\
+    pooled, run I           & lowest 15\%: 78 nodules, 8 malignant; $P \le 0.05$: 4 nodules, none malignant \\
+    pooled, LLM, mean of 3 seeds & lowest 10\%, 15\%, 20\%: 4/52, 7/78, 10/104 malignant \\
+    pooled, XGBoost (22 features) & lowest 10\%, 15\%, 20\%: 2/52, 2/78, 3/104 malignant \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Run E comes closest. Its 78 lowest-scored calibration nodules contain one cancer (1.3\%), well
-below the 5\% target, but 78 nodules are not enough evidence: with one cancer, 93 are needed. The
-auto-malignant side fails in the same way under the planned procedure.
+Run E comes closest among the language models: its 78 lowest-scored calibration nodules contain
+one cancer (1.3\%), well below the 5\% target, but with one cancer 93 nodules are needed. The best
+setting is much dirtier there: 8 cancers among the lowest 78 for run I and 7 for the average of its
+three seeds. XGBoost, with the TI-RADS
+features, has the cleanest tail of all models (2 cancers among the lowest 78, 3 among the lowest
+104), and still nothing is certified: two cancers need 124 nodules, three need 153.
 
-Run I shows a second obstacle, which lies in the procedure rather than the model. Its
-auto-malignant side has evidence at one candidate: at $u = 0.85$, 50 calibration nodules of which 4
-are benign (8\%), $p = 0.018$ against $\alpha_2 = 20\%$. The planned fixed sequence, however,
-starts at the strictest threshold, $u = 0.95$, where only 13 nodules fall ($p = 0.23$), stops at
-this first failure and never reaches 0.85. Ordering the candidates by their $p$-values on the
-validation split, which is independent of calibration and therefore keeps the guarantee, puts
-0.85 first and certifies it. On test, this rule calls 43 nodules (9.8\%) malignant automatically,
-5 of them benign (11.6\%, below the 20\% bound). The same rule certifies nothing for runs D and
-E, and nothing on the auto-benign side of any run. Because the ordering rule was chosen after run
-I was seen, this result is exploratory: it has to be fixed in advance and confirmed on another
-split or seed before it can be claimed.
+The auto-malignant side shows a second obstacle, which lies in the procedure rather than the
+model. For XGBoost, the candidate $u = 0.85$ would pass on its own (54 calibration nodules, 4
+benign, $p = 0.010$ against $\alpha_2 = 20\%$). The planned fixed sequence, however, starts at the
+strictest threshold, $u = 0.95$, where only 7 nodules fall and 3 of them are benign; it fails
+there, stops, and never reaches 0.85. Run I has the same pattern ($u = 0.85$: 50 nodules, 4
+benign, $p = 0.018$; $u = 0.95$: 13 nodules, $p = 0.23$). The strictest candidates hold too few
+nodules to ever pass, so a sequence that starts with them stops at once.
 
-Split conformal prediction is not a way out: on the
-official test set, the automatic benign calls of softmax-based split conformal prediction
-contained 23\% cancers, and on the pooled split 10--20\% (Section~\ref{sec:results-splitcp}). A
-coverage guarantee does not bound the clinical error rate.
+Ordering the candidates by their $p$-values on the validation split, which is independent of
+calibration and therefore keeps the guarantee, avoids starting at a near-empty threshold. This
+certifies auto-malignant at $u = 0.85$ for run I (test: 43 nodules, 9.8\%, of which 5 benign,
+11.6\%) and at $u = 0.90$ for the language model averaged over three seeds (test: 28 nodules,
+6.4\%, none benign). It certifies nothing for runs D and E, nothing for XGBoost (whose validation
+order still puts 0.95 first), and nothing on the auto-benign side. Because the ordering rule was
+chosen after run I was seen, this result is exploratory: it has to be fixed in advance and
+confirmed on another split before it can be claimed.
 
-\subsection{Exploratory: a miss-rate guarantee}
+\subsection{A guarantee on missed cancers}
 
 Bounding the share of \emph{all} cancers sent to auto-benign (Section~\ref{sec:methods-miss}) is
-easier, because the evidence comes from all calibration cancers. At 5\% it is certified in every
-pooled run, for 4--19\% of the calibration nodules (Table~\ref{tab:results-miss}).
+easier, because the evidence comes from all 182 calibration cancers. At 5\% it is certified in
+every pooled run (Table~\ref{tab:results-miss}).
 
 \begin{table}[ht]
   \centering
-  \caption{Miss-rate guarantee at 5\%, pooled split.}
+  \small
+  \caption{Miss-rate guarantee at 5\%, pooled split. LLM avg.: the language model averaged over
+           runs I, M and N; XGB: XGBoost on the 22 features of run I.}
   \label{tab:results-miss}
   \begin{tabular}{lrrrr}
     \toprule
@@ -375,31 +501,37 @@ pooled run, for 4--19\% of the calibration nodules (Table~\ref{tab:results-miss}
     G & 0.17 &  6.9\% &  7.8\% & 0.7\% \\
     H & 0.20 &  4.2\% &  3.7\% & 0.7\% \\
     I & 0.09 &  6.1\% &  5.5\% & 0.7\% \\
+    M & 0.09 &  5.2\% &  5.3\% & 1.3\% \\
+    N & 0.12 &  9.5\% &  8.4\% & 2.6\% \\
+    \midrule
+    LLM avg. & 0.14 & 11.3\% & 12.1\% & 4.6\% \\
+    XGB & 0.14 & 19.8\% & 23.7\% & 4.6\% \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 The realised test miss rate ranges from 0.7\% to 8.6\%. A guarantee with $\delta = 0.05$ is
-allowed to fail on some test sets, and the test set has only 152 cancers, so one run above 5\% is
-not a contradiction; but it shows how variable a single run is. On the official split the same
-rule behaved worse under the shift: at 10\%, 15.3\% of the official-test cancers were missed.
-This analysis was not planned in advance and is reported as exploratory.
+allowed to fail on some test sets, and the test set has only 152 cancers, so one cancer is 0.7
+percentage points; one run above 5\% is not a contradiction. On the official split the same rule
+behaved worse under the shift: at 10\%, 15.3\% of the official-test cancers were missed. XGBoost
+sends twice as many nodules to auto-benign as the averaged language model at the same miss rate,
+and the cancers among them are 7 of 104 (6.7\%) against 7 of 53 (13.2\%).
 
 \subsection{Split conformal prediction on the pooled split}
 \label{sec:results-splitcp}
 
 Classical split conformal prediction (Section~\ref{sec:methods-splitcp}) gives what it promises on
-the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.90--0.93 in all nine runs, and
-with $\alpha = 0.05$ it is 0.94--0.97. Marginal coverage, however, is carried by the benign
-majority: at $\alpha = 0.10$ only 70--86\% of the test cancers have ``malignant'' in their set.
-The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}).
+the pooled split: with marginal $\alpha = 0.10$ the test coverage is 0.88--0.93, and with
+$\alpha = 0.05$ it is 0.93--0.97. Marginal coverage, however, is carried by the benign majority:
+at $\alpha = 0.10$ only 66--92\% of the test cancers have ``malignant'' in their set. The Mondrian
+form protects the cancers directly (Table~\ref{tab:results-splitcp}).
 
 \begin{table}[ht]
   \centering
   \small
   \caption{Mondrian split conformal prediction on the pooled test set ($\alpha = 0.10$ benign,
            $0.05$ malignant; thresholds from calibration). Auto-benign and auto-malignant are
-           the single-label sets; the rest is referred.}
+           the single-label sets; the rest is referred. XGB: XGBoost on the 22 features of run I.}
   \label{tab:results-splitcp}
   \begin{tabular}{lrrrrrr}
     \toprule
@@ -419,17 +551,58 @@ The Mondrian form protects the cancers directly (Table~\ref{tab:results-splitcp}
     G & 0.954 & 18.0\% &  8.9\% & 14.6\% & 35.9\% & 67.4\% \\
     H & 0.987 &  8.7\% &  5.3\% & 12.3\% & 27.8\% & 79.0\% \\
     I & 0.941 & 18.3\% & 11.3\% & 22.8\% & 22.0\% & 58.9\% \\
+    J & 0.914 & 24.7\% & 12.0\% & 22.4\% & 27.6\% & 53.0\% \\
+    K & 0.954 & 16.2\% &  9.9\% & 21.5\% & 21.3\% & 62.3\% \\
+    L & 0.908 & 14.6\% & 21.9\% & 18.5\% & 33.3\% & 66.9\% \\
+    M & 0.914 & 19.6\% & 15.1\% & 19.2\% & 26.2\% & 61.2\% \\
+    N & 0.928 & 21.9\% & 11.5\% & 20.3\% & 23.6\% & 57.8\% \\
+    O & 0.967 & 12.8\% &  8.9\% & 13.0\% & 40.4\% & 74.2\% \\
+    P & 0.941 & 12.8\% & 16.1\% & 15.5\% & 29.4\% & 71.7\% \\
+    \midrule
+    XGB & 0.941 & 28.1\% & 7.3\% & 24.2\% & 24.5\% & 47.7\% \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-About a fifth of the nodules receive the single label ``benign'', and roughly 60\% are referred.
-Two caveats follow from the table. First, the cancers among the auto-benign calls make up 5--17\%
-of that group: the guarantee limits how many cancers are missed overall, not how safe a single
-benign call is, so it does not replace $R_1$. Second, the share of cancers covered is
-0.90--0.94 in seven of the nine runs, below the 0.95 target (runs G and H reach 0.954 and
-0.987). The runs share one calibration set and one test
-set, so this is one draw of the data repeated rather than independent failures: with
-182 calibration and 152 test cancers, a shortfall of this size on a single draw is plausible, and
-other random splits would be needed to tell chance from a systematic difference. The same caution
-applies to the miss-rate variant, whose test miss rates on the same split reach 8.6\%.
+About a fifth of the nodules receive the single label ``benign'' (more than a quarter with
+XGBoost), and roughly 60\% are referred. Two observations follow.
+
+First, the cancers among the auto-benign calls make up 5--22\% of that group: the guarantee limits
+how many cancers are missed overall, not how safe a single benign call is, so it does not replace
+$R_1$.
+
+Second, the share of cancers covered is below the 0.95 target in 12 of the 16 runs, which looks
+like a systematic failure. All runs, however, share one calibration set and one test set, so this
+is one draw of the data seen many times. To separate chance from a real shortfall, the model was
+held fixed and the 962 calibration and test nodules were randomly re-split 4,000 times, with the
+same sizes and class proportions, recalibrating each time (\texttt{experiments/conformal\_checks.py};
+Table~\ref{tab:results-resplit}).
+
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{Mondrian split conformal prediction over 4,000 random re-splits of calibration and
+           test (model fixed). Mean and standard deviation of the cancer coverage; mean share of
+           auto-benign nodules and of cancers among them, with the 5th--95th percentile range.}
+  \label{tab:results-resplit}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lrrrr}
+    \toprule
+    model & \multicolumn{1}{p{1.8cm}}{\raggedleft coverage, our split}
+          & \multicolumn{1}{p{2.1cm}}{\raggedleft coverage, re-splits}
+          & auto-benign
+          & \multicolumn{1}{p{2.5cm}}{\raggedleft cancers in auto-benign} \\
+    \midrule
+    XGBoost (22 features)        & 0.941 & $0.951 \pm 0.024$ & 25.7\% & 6.4\% (2.3--10.5\%) \\
+    LLM, mean of 3 seeds         & 0.934 & $0.950 \pm 0.024$ & 16.7\% & 9.8\% (4.7--14.6\%) \\
+    run I                        & 0.941 & $0.951 \pm 0.024$ & 16.9\% & 9.6\% (4.1--14.0\%) \\
+    run D                        & 0.908 & $0.951 \pm 0.023$ & 17.6\% & 9.3\% (3.6--14.9\%) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The average coverage is 0.950--0.951 for every model, exactly as the theory promises, and falls
+below 0.95 in about 45\% of the re-splits. Our split was unlucky by about one standard deviation;
+the guarantee holds. The same analysis gives the expected share of cancers among the auto-benign
+calls: about 10\% for the language model and 6\% for XGBoost, against 35\% in the data and the 5\%
+asked of $R_1$.
