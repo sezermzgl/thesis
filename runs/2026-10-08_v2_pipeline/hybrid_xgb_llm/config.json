@@ -1,0 +1,39 @@
+{
+  "features": [
+    "original_clinical_TallerThanWideRatio",
+    "original_clinical_EchogenicityRatio",
+    "original_clinical_PunctateFociDensity",
+    "original_clinical_Solidity",
+    "original_clinical_MarginSharpness",
+    "original_clinical_AnechoicFraction",
+    "original_shape2D_MajorAxisLengthRelative",
+    "original_glszm_SmallAreaLowGrayLevelEmphasis",
+    "original_shape2D_Elongation",
+    "original_shape2D_PixelSurfaceRelative",
+    "original_firstorder_Range",
+    "original_shape2D_PerimeterSurfaceRatioRelative",
+    "original_gldm_DependenceVariance",
+    "original_firstorder_MeanAbsoluteDeviation",
+    "original_glcm_Idm",
+    "original_shape2D_Sphericity",
+    "original_gldm_DependenceNonUniformityNormalized",
+    "original_gldm_DependenceNonUniformity",
+    "original_glcm_MaximumProbability",
+    "original_glszm_SizeZoneNonUniformity",
+    "original_glszm_ZoneEntropy",
+    "original_glszm_SizeZoneNonUniformityNormalized"
+  ],
+  "llm_runs": [
+    "Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_corr95_clin",
+    "Qwen2.5-1.5B_f16_e5_s1_pooled_seed42_v2_corr95_clin6"
+  ],
+  "stacking_coef": [
+    [
+      0.9965390413480428,
+      -0.04375977937433064
+    ]
+  ],
+  "stacking_intercept": [
+    -0.45420095742416106
+  ]
+}

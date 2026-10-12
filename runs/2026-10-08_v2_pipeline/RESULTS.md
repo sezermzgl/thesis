@@ -114,3 +114,20 @@ Notes:
 - Run A predicted under the Trainer's bf16 autocast, so its probabilities are rounded (195 distinct values on 524 calibration nodules). Runs B–F predict in full precision (524 of 524).
 - Differences below about 0.02 AUC between single runs are within seed-to-seed variation (the two earlier 1.5B runs on the official split gave 0.672 and 0.667 on test).
 - XGBoost with the same 16 v2 features (0.805) stays about 0.05 above the best LLM run.
+
+## Does the LLM add information beyond XGBoost? (late fusion, computed afterwards)
+
+`experiments/hybrid_xgb_llm.py`, output in `hybrid_xgb_llm/`. XGBoost is trained on exactly the 22 features of run I (6 TI-RADS + 16 mRMR, same preprocessing, Part B settings); the LLM is the average of runs I and M (seeds 42 and 1). The two are combined by averaging probabilities, averaging ranks, or a logistic regression on the two logits fitted on validation only (calibration and test untouched).
+
+| model | val | cal | test |
+|---|---|---|---|
+| XGBoost (same 22 features) | 0.827 | 0.848 | 0.835 |
+| LLM (mean of 2 seeds) | 0.787 | 0.802 | 0.792 |
+| mean of probabilities | 0.819 | 0.838 | 0.825 |
+| stacking (fitted on validation) | 0.827 | 0.848 | 0.834 |
+
+- The two models' probabilities correlate 0.86 (Pearson) on every split: they rank the nodules almost the same way.
+- The LLM is 0.04–0.05 below XGBoost (paired intervals exclude zero). Averaging the two is slightly worse than XGBoost alone (−0.009 on test, interval [−0.022, +0.003]).
+- Stacking gives the LLM a weight of −0.04 against 1.00 for XGBoost, i.e. it learns to ignore the LLM; its AUC equals XGBoost's.
+- Mondrian split CP on test: XGBoost sends 28.1% of nodules to auto-benign with 7.3% cancers there; the LLM 18.3% with 11.2%. Fusion does not improve on XGBoost.
+- Conclusion: on these features the fine-tuned LLM carries no information that XGBoost does not already use. It reproduces a weaker version of the tabular model's ranking.
