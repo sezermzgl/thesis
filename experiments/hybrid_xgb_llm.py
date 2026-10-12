@@ -14,6 +14,8 @@ XGBoost on the same nodules.
 
     python experiments/hybrid_xgb_llm.py --features radiomics_v2_clinical.csv \
         --llm-runs runs/2026-10-08_v2_pipeline/<run> [<run> ...] --out runs/2026-10-08_v2_pipeline/hybrid
+
+With --xgb-probs <folder> instead of --features, the saved XGBoost probabilities are reused.
 """
 
 import argparse
@@ -72,7 +74,9 @@ def paired_bootstrap(y, a, b, n=2000, seed=0):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--features", required=True, help="radiomics_v2_clinical.csv (v2 features + TI-RADS features)")
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--features", help="radiomics_v2_clinical.csv (v2 features + TI-RADS features)")
+    src.add_argument("--xgb-probs", help="folder with xgboost_probs_{split}.csv from an earlier run (skips training)")
     ap.add_argument("--llm-runs", nargs="+", required=True, help="LLM run folders with the same selected features")
     ap.add_argument("--split", default=str(REPO / "splits" / "pooled_seed42.csv"))
     ap.add_argument("--out", required=True)
@@ -85,7 +89,10 @@ def main():
     assert all(f == feature_sets[0] for f in feature_sets), "LLM runs use different features"
     features = feature_sets[0]
 
-    xgb = xgboost_probs(pd.read_csv(args.features), features, Path(args.split))
+    if args.features:
+        xgb = xgboost_probs(pd.read_csv(args.features), features, Path(args.split))
+    else:
+        xgb = {s: pd.read_csv(Path(args.xgb_probs) / f"xgboost_probs_{s}.csv") for s in EVAL}
     for s in EVAL:
         xgb[s].to_csv(out / f"xgboost_probs_{s}.csv", index=False)
 

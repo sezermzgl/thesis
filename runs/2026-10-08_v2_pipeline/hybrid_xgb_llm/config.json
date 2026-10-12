@@ -25,15 +25,16 @@
   ],
   "llm_runs": [
     "Qwen2.5-1.5B_f16_e5_s42_pooled_seed42_v2_corr95_clin",
-    "Qwen2.5-1.5B_f16_e5_s1_pooled_seed42_v2_corr95_clin6"
+    "Qwen2.5-1.5B_f16_e5_s1_pooled_seed42_v2_corr95_clin6",
+    "Qwen2.5-1.5B_f16_e5_s2_pooled_seed42_v2_corr95_clin6"
   ],
   "stacking_coef": [
     [
-      0.9965390413480428,
-      -0.04375977937433064
+      0.9922359913092753,
+      -0.03786569973364514
     ]
   ],
   "stacking_intercept": [
-    -0.45420095742416106
+    -0.452737478410741
   ]
 }

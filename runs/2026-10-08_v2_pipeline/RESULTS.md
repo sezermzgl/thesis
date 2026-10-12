@@ -39,6 +39,7 @@ No setting certifies the 5% auto-benign rule; the lowest 15% of calibration hold
 | K | Qwen2.5-1.5B | v2 + 6 TI-RADS features | 0.95 | rich | 0.803 | 0.785 | 0.801 | 132 |
 | L | Qwen2.5-7B, LR 5e-5, batch 4 × 4 | v2 + 6 TI-RADS features | 0.95 | decimal | 0.751 | 0.712 | 0.693 | 123 |
 | M | Qwen2.5-1.5B, seed 1 (repeat of I) | v2 + 6 TI-RADS features | 0.95 | decimal | 0.771 | 0.777 | 0.768 | 37 |
+| N | Qwen2.5-1.5B, seed 2 (repeat of I) | v2 + 6 TI-RADS features | 0.95 | decimal | 0.787 | 0.794 | 0.783 | 37 |
 | G | Llama-2-7B, LR 1e-4, LoRA all layers (Ra et al. settings), batch 4 × 4, MAX_LENGTH 512 | v2 | 0.95 | decimal | 0.705 | 0.709 | 0.731 | 182 |
 
 Paired bootstrap (2,000 resamples of the same nodules), 95% interval of the AUC difference:
@@ -74,6 +75,7 @@ Findings:
 - **Rich format with TI-RADS features (run K)** is as good as decimal (run I): validation +0.008, test −0.003 (intervals include zero), calibration −0.027 (interval excludes zero). Training was stable, so the weak rich runs without TI-RADS features (H) were not caused by prompt length alone. Decimal stays the default because it is equal or better and four times faster (132 vs 36 minutes).
 - **Qwen2.5-7B with a lower LR and the TI-RADS features (run L) is clearly worse than 1.5B** (test 0.693 vs 0.804; intervals exclude zero on all splits). The lower LR calmed the swings in sensitivity (0.85 → 0.30 → 0.31 → 0.46 → 0.58) but gradient norms still reached 100–200, and validation AUC was still creeping up when the LR had decayed to zero (0.691 → 0.736 → 0.742 → 0.751 → 0.753). The TI-RADS features, which lift 1.5B by 0.05, give 7B nothing (L vs C, intervals include zero), and the gap between validation (0.751) and calibration/test (0.71/0.69) is larger than for any 1.5B run. Within this setup (QLoRA on Q/V, 5 epochs, ~2k training prompts) a larger backbone does not help; 1.5B stays the main model.
 - **Seed repeat of run I (run M, seed 1)**: 0.771 / 0.777 / 0.768, i.e. 0.024–0.035 below seed 42 on every split, and the paired intervals exclude zero. The training seed alone moves the AUC by about 0.03, as much as several of the effects above. Against run D (no TI-RADS features, seed 42), seed 1 is still higher (+0.014 to +0.025) but the intervals include zero, so the TI-RADS gain for the LLM has to be judged on averages over seeds, with run D repeated as well. The average of the two seeds' probabilities gives 0.787 / 0.802 / 0.792 (the two runs correlate 0.91).
+- **Three seeds of the best setting (runs I, M, N; seeds 42, 1, 2)**: validation 0.784 ± 0.012, calibration 0.794 ± 0.018, test 0.785 ± 0.018 (mean ± SD). Seed 42 was the upper end. This mean, not run I alone, is the number to report; the gap to XGBoost with the same features (test 0.835) is about 0.05, not 0.027. The TI-RADS gain for the LLM (vs run D, 0.754) still rests on a single seed of D.
 - **Run-to-run variation**: a repeat of run H with the same settings and seed (only MAX_LENGTH 1536 instead of 1024, i.e. more padding) gave 0.717 / 0.682 / 0.698 instead of 0.732 / 0.711 / 0.744. Its files were overwritten on Drive and the notebook was not kept; the numbers come from the executed notebook output. Differences of up to ~0.05 between single runs can therefore come from training noise alone.
 - **LTT certifies nothing in any run under the planned procedure.** Best tail: run E, lowest 15% of calibration with 1 cancer out of 78; at threshold 0.20, 90 nodules with 3 cancers (1 error would need ≥ 93 nodules, 3 errors ≥ 153).
 - **Exploratory miss-rate rule** (cancers sent to auto-benign ≤ 5%): the test miss rate ranges from 2.6% to 8.6% across runs (run D: 8.6% at t = 0.16), so a single run can exceed the target (run G: t = 0.17, test miss rate 0.7% with 7.8% automated).
@@ -101,6 +103,7 @@ Mondrian, α = 0.10 for benign and 0.05 for malignant nodules (at most ~5% of ca
 | I | 0.941 | 18.3% | 11.3% | 22.8% | 22.0% | 58.9% |
 | J | 0.914 | 24.7% | 12.0% | 22.4% | 27.6% | 53.0% |
 | K | 0.954 | 16.2% | 9.9% | 21.5% | 21.3% | 62.3% |
+| N | 0.928 | 21.9% | 11.5% | 20.3% | 23.6% | 57.8% |
 | M | 0.914 | 19.6% | 15.1% | 19.2% | 26.2% | 61.2% |
 | L | 0.908 | 14.6% | 21.9% | 18.5% | 33.3% | 66.9% |
 
@@ -117,17 +120,17 @@ Notes:
 
 ## Does the LLM add information beyond XGBoost? (late fusion, computed afterwards)
 
-`experiments/hybrid_xgb_llm.py`, output in `hybrid_xgb_llm/`. XGBoost is trained on exactly the 22 features of run I (6 TI-RADS + 16 mRMR, same preprocessing, Part B settings); the LLM is the average of runs I and M (seeds 42 and 1). The two are combined by averaging probabilities, averaging ranks, or a logistic regression on the two logits fitted on validation only (calibration and test untouched).
+`experiments/hybrid_xgb_llm.py`, output in `hybrid_xgb_llm/`. XGBoost is trained on exactly the 22 features of run I (6 TI-RADS + 16 mRMR, same preprocessing, Part B settings); the LLM is the average of runs I, M and N (seeds 42, 1 and 2). The two are combined by averaging probabilities, averaging ranks, or a logistic regression on the two logits fitted on validation only (calibration and test untouched).
 
 | model | val | cal | test |
 |---|---|---|---|
 | XGBoost (same 22 features) | 0.827 | 0.848 | 0.835 |
-| LLM (mean of 2 seeds) | 0.787 | 0.802 | 0.792 |
-| mean of probabilities | 0.819 | 0.838 | 0.825 |
+| LLM (mean of 3 seeds) | 0.792 | 0.803 | 0.793 |
+| mean of probabilities | 0.820 | 0.838 | 0.824 |
 | stacking (fitted on validation) | 0.827 | 0.848 | 0.834 |
 
-- The two models' probabilities correlate 0.86 (Pearson) on every split: they rank the nodules almost the same way.
-- The LLM is 0.04–0.05 below XGBoost (paired intervals exclude zero). Averaging the two is slightly worse than XGBoost alone (−0.009 on test, interval [−0.022, +0.003]).
-- Stacking gives the LLM a weight of −0.04 against 1.00 for XGBoost, i.e. it learns to ignore the LLM; its AUC equals XGBoost's.
-- Mondrian split CP on test: XGBoost sends 28.1% of nodules to auto-benign with 7.3% cancers there; the LLM 18.3% with 11.2%. Fusion does not improve on XGBoost.
+- The two models' probabilities correlate 0.87–0.88 (Pearson) on every split: they rank the nodules almost the same way.
+- The LLM is 0.04–0.05 below XGBoost (paired intervals exclude zero). Averaging the two is slightly worse than XGBoost alone (−0.011 on test, interval [−0.023, +0.001]).
+- Stacking gives the LLM a weight of −0.04 against 0.99 for XGBoost, i.e. it learns to ignore the LLM; its AUC equals XGBoost's.
+- Mondrian split CP on test: XGBoost sends 28.1% of nodules to auto-benign with 7.3% cancers there; the LLM 19.2% with 11.9%. Fusion does not improve on XGBoost.
 - Conclusion: on these features the fine-tuned LLM carries no information that XGBoost does not already use. It reproduces a weaker version of the tabular model's ranking.
