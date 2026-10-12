@@ -1,0 +1,29 @@
+1. Smallest group certifiable with k errors (binomial test, delta = 0.05)
+   alpha = 0.05: k=0: n>=59, k=1: n>=93, k=2: n>=124, k=3: n>=153, k=4: n>=181, k=5: n>=208
+   alpha = 0.20: k=0: n>=14, k=1: n>=22, k=2: n>=30, k=3: n>=37, k=4: n>=44, k=5: n>=50
+
+2. LTT and the miss-rate rule (thresholds from calibration, applied to test)
+
+== XGBoost (22 features)
+   planned LTT (safest first): t = None, u = None
+   auto-benign, first candidates: 0.05: 2/35, p=0.746; 0.1: 2/69, p=0.323; 0.15: 5/110, p=0.527; 0.2: 12/155, p=0.952
+   auto-malignant, first candidates: 0.95: 3/7, p=0.967; 0.9: 3/32, p=0.093; 0.85: 4/54, p=0.01; 0.8: 9/78, p=0.036
+   validation-ordered LTT, benign: nothing (first candidate 0.05: 2/35, p=0.746)
+   validation-ordered LTT, malignant: nothing (first candidate 0.95: 3/7, p=0.967)
+   miss-rate rule (<= 5% of cancers auto-benign): t = 0.14; test automation 23.7%, miss rate 0.046, cancers among auto-benign 7/104
+   cleanest calibration tail: lowest 10% 2/52 cancers, lowest 15% 2/78 cancers, lowest 20% 3/104 cancers
+
+== LLM (mean of 3 seeds)
+   planned LTT (safest first): t = None, u = None
+   auto-benign, first candidates: 0.05: 0/1, p=0.95; 0.1: 4/30, p=0.984; 0.15: 6/68, p=0.947; 0.2: 10/102, p=0.987
+   auto-malignant, first candidates: 0.95: 1/8, p=0.503; 0.9: 2/30, p=0.044; 0.85: 4/43, p=0.051; 0.8: 7/58, p=0.084
+   validation-ordered LTT, benign: nothing (first candidate 0.15: 6/68, p=0.947)
+   validation-ordered LTT, malignant: certified [0.9]; test 28 nodules (6.4%), error share 0.000
+   miss-rate rule (<= 5% of cancers auto-benign): t = 0.14; test automation 12.1%, miss rate 0.046, cancers among auto-benign 7/53
+   cleanest calibration tail: lowest 10% 4/52 cancers, lowest 15% 7/78 cancers, lowest 20% 10/104 cancers
+
+3. Mondrian split CP (alpha 0.10 benign / 0.05 malignant) over 4,000 random re-splits of calibration + test
+   XGBoost (22 features): cancer coverage mean 0.951 (SD 0.024, below 0.95 in 45%); our split 0.941. Auto-benign 25.7%, cancers among them 6.4% (5-95%: 2.3%-10.5%)
+   LLM (mean of 3 seeds): cancer coverage mean 0.950 (SD 0.024, below 0.95 in 45%); our split 0.934. Auto-benign 16.7%, cancers among them 9.8% (5-95%: 4.7%-14.6%)
+   LLM seed 42 (run I): cancer coverage mean 0.951 (SD 0.024, below 0.95 in 46%); our split 0.941. Auto-benign 16.9%, cancers among them 9.6% (5-95%: 4.1%-14.0%)
+   LLM without TI-RADS (run D): cancer coverage mean 0.951 (SD 0.023, below 0.95 in 45%); our split 0.908. Auto-benign 17.6%, cancers among them 9.3% (5-95%: 3.6%-14.9%)
