@@ -155,6 +155,19 @@ What the models offer (calibration, 524 nodules, 182 cancers):
 
 Ordering the candidates by their p-values on the validation split (independent of calibration, so the guarantee still holds) avoids starting at an empty threshold. It certifies auto-malignant at u = 0.85 for run I (test: 43 nodules, 11.6% benign) and at u = 0.90 for the 3-seed LLM average (test: 28 nodules, none benign); nothing for XGBoost (its validation order puts u = 0.95 first) and nothing on the auto-benign side. Because this rule was found after looking at the results, it has to be fixed in advance and confirmed on a new split before it can be claimed.
 
+### 7.2b A design fixed in advance (2026-10-13)
+
+Written and committed before it was run (`experiments/ltt_design_resplits.py`, output `ltt_design_resplits.txt`): candidates at the 5%, 10%, …, 30% quantiles of the validation scores, ordered by validation p-values, fixed-sequence test on calibration with the planned α and δ. Models fixed; calibration and test re-split 2,000 times.
+
+| model | auto-benign 5%, either design | auto-malignant 20%, planned | auto-malignant 20%, quantile design | decided on test | benign among them (test / all 962) |
+|---|---|---|---|---|---|
+| XGBoost | 0% | 0% | 38% | 10.7% | 14.9% / 11.2% |
+| LLM, 3-seed average | 0% | 1% | **99%** | 7.9% | 7.4% / 6.4% |
+| LLM run I | 0% | 13% | 22% | 11.5% | 18.4% / 13.6% |
+| LLM run D | 0% | 0% | 8% | 6.8% | 22.6% / 13.8% |
+
+Auto-benign at 5% is never certified: the limit there is the model. Auto-malignant at 20% becomes attainable for the seed-averaged LLM (99% of re-splits; on our split u = 0.833, 9.8% of test nodules, 14% benign). The ordering helps only where validation and calibration agree (XGBoost's top-5% candidate is dirty on calibration). The benign share over all 962 nodules never exceeds 20%. Caveat: the design followed the exploratory run-I result and the models were selected on these data; confirmation needs new data.
+
 ### 7.3 Miss-rate rule (LTT on the share of cancers missed)
 
 | model | threshold t | test automation | test miss rate | cancers among auto-benign (test) |
@@ -219,7 +232,7 @@ With a properly evaluated XGBoost and seed repeats, we find the LLM about 0.04�
 
 In order of expected value:
 
-1. **Pre-register an LTT design that can pass**: candidate thresholds at validation quantiles (so every candidate has enough nodules) and a validation-ordered sequence; confirm on new random splits.
+1. **Confirm the quantile-grid LTT design on new data** (Section 7.2b): retraining on new random splits or a second dataset.
 2. **Repeat the conformal analysis over several random splits** (needs re-training per split, or the re-split approach above for a fixed model).
 3. **External dataset** (e.g. ThyroidXL) to test whether the TI-RADS gain and the LLM–XGBoost gap transfer.
 4. Inputs a tabular model cannot use (report text, clinical history) would be the setting where an LLM could add information.

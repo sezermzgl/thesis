@@ -1,0 +1,32 @@
+== XGBoost (22 features)
+   auto-benign (alpha = 5%); validation-ordered quantile candidates: 0.050, 0.076, 0.164, 0.134, 0.098, 0.205
+     planned (probability grid, safest first): certified in 0% of re-splits. Our split: not certified
+     quantile grid, validation-ordered: certified in 0% of re-splits. Our split: not certified
+   auto-malignant (alpha = 20%); validation-ordered quantile candidates: 0.889, 0.780, 0.836, 0.709, 0.660, 0.612
+     planned (probability grid, safest first): certified in 0% of re-splits. Our split: not certified
+     quantile grid, validation-ordered: certified in 38% of re-splits; when certified: test automation 10.7% (5-95%: 5.9%-16.9%), test error 14.9%, error on all 962 11.2%, test error > alpha in 4%, all-962 error > alpha in 0%. Our split: not certified
+
+== LLM (mean of 3 seeds)
+   auto-benign (alpha = 5%); validation-ordered quantile candidates: 0.121, 0.146, 0.212, 0.097, 0.175, 0.255
+     planned (probability grid, safest first): certified in 0% of re-splits. Our split: not certified
+     quantile grid, validation-ordered: certified in 0% of re-splits. Our split: not certified
+   auto-malignant (alpha = 20%); validation-ordered quantile candidates: 0.891, 0.833, 0.710, 0.778, 0.654, 0.614
+     planned (probability grid, safest first): certified in 1% of re-splits; when certified: test automation 7.5% (5-95%: 4.3%-11.2%), test error 11.3%, error on all 962 8.0%, test error > alpha in 5%, all-962 error > alpha in 0%. Our split: not certified
+     quantile grid, validation-ordered: certified in 99% of re-splits; when certified: test automation 7.9% (5-95%: 5.7%-10.7%), test error 7.4%, error on all 962 6.4%, test error > alpha in 0%, all-962 error > alpha in 0%. Our split: threshold 0.833, test automation 9.8%, test error 14.0%
+
+== LLM run I (seed 42)
+   auto-benign (alpha = 5%); validation-ordered quantile candidates: 0.109, 0.129, 0.186, 0.153, 0.084, 0.229
+     planned (probability grid, safest first): certified in 0% of re-splits. Our split: not certified
+     quantile grid, validation-ordered: certified in 0% of re-splits. Our split: not certified
+   auto-malignant (alpha = 20%); validation-ordered quantile candidates: 0.833, 0.898, 0.785, 0.707, 0.653, 0.589
+     planned (probability grid, safest first): certified in 13% of re-splits; when certified: test automation 8.2% (5-95%: 1.8%-10.8%), test error 12.3%, error on all 962 9.0%, test error > alpha in 3%, all-962 error > alpha in 0%. Our split: not certified
+     quantile grid, validation-ordered: certified in 22% of re-splits; when certified: test automation 11.5% (5-95%: 9.6%-14.4%), test error 18.4%, error on all 962 13.6%, test error > alpha in 20%, all-962 error > alpha in 0%. Our split: not certified
+
+== LLM run D (no TI-RADS)
+   auto-benign (alpha = 5%); validation-ordered quantile candidates: 0.097, 0.129, 0.154, 0.197, 0.262, 0.328
+     planned (probability grid, safest first): certified in 0% of re-splits. Our split: not certified
+     quantile grid, validation-ordered: certified in 0% of re-splits. Our split: not certified
+   auto-malignant (alpha = 20%); validation-ordered quantile candidates: 0.840, 0.734, 0.693, 0.674, 0.652, 0.632
+     planned (probability grid, safest first): certified in 0% of re-splits. Our split: not certified
+     quantile grid, validation-ordered: certified in 8% of re-splits; when certified: test automation 6.8% (5-95%: 5.5%-8.0%), test error 22.6%, error on all 962 13.8%, test error > alpha in 93%, all-962 error > alpha in 0%. Our split: not certified
+

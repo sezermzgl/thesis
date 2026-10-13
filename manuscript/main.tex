@@ -53,7 +53,9 @@ nothing to XGBoost. Larger backbones (Qwen2.5-7B, Llama-2-7B with the settings o
 alternative prompt formats do not help. The planned Learn-then-Test procedure certifies no
 automatic decision, for the language model or for XGBoost: the cleanest low-risk groups are too
 small or not clean enough for the evidence required, and the planned order of tests stops at
-thresholds that hold too few nodules. Guarantees on the share of missed cancers, from split
+thresholds that hold too few nodules. A design fixed in advance, with thresholds at quantiles of
+the validation scores, certifies the automatic malignant calls in 99\% of 2,000 re-splits of the
+data; the automatic benign calls remain out of reach. Guarantees on the share of missed cancers, from split
 conformal prediction and a variant of Learn then Test, are attainable and hold over 4,000 re-splits
 of the data, but about 10\% of the automatic benign calls are still cancers (6\% with XGBoost).
 Which guarantee is attainable, and what it is worth clinically, are the main results.

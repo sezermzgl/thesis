@@ -150,3 +150,20 @@ Notes:
 - Stacking gives the LLM a weight of −0.04 against 0.99 for XGBoost, i.e. it learns to ignore the LLM; its AUC equals XGBoost's.
 - Mondrian split CP on test: XGBoost sends 28.1% of nodules to auto-benign with 7.3% cancers there; the LLM 19.2% with 11.9%. Fusion does not improve on XGBoost.
 - Conclusion: on these features the fine-tuned LLM carries no information that XGBoost does not already use. It reproduces a weaker version of the tabular model's ranking.
+
+## Pre-registered LTT design over re-splits (2026-10-13)
+
+`experiments/ltt_design_resplits.py` (design committed in `4f42659` before it was run), output `ltt_design_resplits.txt`. Candidates at quantiles of the validation scores (5%, 10%, …, 30% of nodules per side), ordered by their validation p-values, fixed-sequence test on calibration; α 5% / 20%, δ 0.05. Models fixed; calibration + test re-split 2,000 times.
+
+| model | auto-benign 5%: certified | auto-malignant 20%, planned design: certified | auto-malignant 20%, quantile design: certified | when certified: test automation | error among them (test / all 962) |
+|---|---|---|---|---|---|
+| XGBoost (22 features) | 0% | 0% | 38% | 10.7% | 14.9% / 11.2% |
+| LLM, mean of 3 seeds | 0% | 1% | **99%** | 7.9% | 7.4% / 6.4% |
+| LLM run I | 0% | 13% | 22% | 11.5% | 18.4% / 13.6% |
+| LLM run D (no TI-RADS) | 0% | 0% | 8% | 6.8% | 22.6% / 13.8% |
+
+- **Auto-benign at 5% is never certified**, for any model or design: this side is out of reach of the current models, not a matter of procedure.
+- **Auto-malignant at 20% becomes attainable with the quantile design**: for the seed-averaged LLM in 99% of re-splits (about 8% of nodules decided automatically, 6–7% of them benign); on our split u = 0.833, 9.8% of test nodules, 14.0% benign. XGBoost only in 38%: its validation order puts its top-5% candidate first, which is dirty on calibration (3 benign of 7 at P ≥ 0.95), so the sequence stops there. The ordering gains power only where validation and calibration agree.
+- The error share over all 962 nodules below the chosen threshold never exceeds α in any re-split. The test-only share does for run D (93%): in a fixed pool, a re-split whose calibration part is clean leaves a dirtier test part, so conditioning on certification biases the test share upwards; the guarantee concerns the population risk.
+- Caveat: the design was written after the exploratory validation-ordered result on run I, and the models were selected on these data. The re-splits vary only the calibration/test assignment. A confirmation needs new data (retraining on new splits or a second dataset).
+

@@ -5,16 +5,14 @@ The questions about the classifier are answered: the best setting, its training 
 of the TI-RADS-motivated features, model size, prompt format and the comparison with XGBoost. The
 open questions concern the triage layer and the generality of the results.
 
-\section{A confirmatory Learn-then-Test design}
+\section{Confirming the Learn-then-Test design on new data}
 \label{sec:future-running}
 
-The planned fixed sequence stopped at candidates too small to pass
-(Section~\ref{sec:results-ltt}). A design fixed in advance can avoid this without giving up the
-guarantee: candidate thresholds at quantiles of the validation scores, so that every candidate
-holds enough calibration nodules, tested in the order of their validation $p$-values. Run on new
-random splits, it would show whether the exploratory auto-malignant certification of
-Section~\ref{sec:results-ltt} is reproducible, and on which side a guarantee is within reach of
-the current models.
+The quantile-based, validation-ordered design certifies the auto-malignant side in 99\% of
+re-splits for the seed-averaged language model (Section~\ref{sec:results-ltt-design}). The
+re-splits keep the trained models and vary only the calibration and test assignment, and the
+design was written after an exploratory result on the same data. Retraining on new random splits,
+or applying the fixed design to a second dataset, would confirm it.
 
 \section{Conformal results over several splits}
 

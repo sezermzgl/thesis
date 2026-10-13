@@ -476,6 +476,72 @@ order still puts 0.95 first), and nothing on the auto-benign side. Because the o
 chosen after run I was seen, this result is exploratory: it has to be fixed in advance and
 confirmed on another split before it can be claimed.
 
+\subsection{A design fixed in advance, over re-splits}
+\label{sec:results-ltt-design}
+
+The two obstacles suggest a design that keeps the guarantee and can pass. It was written down and
+committed before it was run; the code is in
+\texttt{experiments/\allowbreak ltt\_design\_resplits.py}.
+
+\begin{itemize}
+  \item \textbf{Candidates} at quantiles of the validation scores, so that each holds a known
+        share of the nodules: auto-benign below the 5\%, 10\%, \dots, 30\% quantile, auto-malignant
+        above the 95\%, 90\%, \dots, 70\% quantile.
+  \item \textbf{Order} by the candidates' binomial $p$-values on validation, smallest first.
+  \item \textbf{Test} on calibration with the fixed sequence, $\alpha_1 = 5\%$,
+        $\alpha_2 = 20\%$, $\delta = 0.05$, as planned.
+\end{itemize}
+
+Keeping the models fixed, calibration and test were re-split 2,000 times as in
+Section~\ref{sec:results-splitcp}, and the new design was compared with the planned one
+(Table~\ref{tab:results-ltt-design}).
+
+\begin{table}[ht]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \caption{Share of 2,000 re-splits in which a side is certified, and, when the quantile design
+           certifies auto-malignant, the share of test nodules decided and the share of benign
+           nodules among them (on test, and on all 962 nodules above the threshold).}
+  \label{tab:results-ltt-design}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    & \multicolumn{1}{p{1.5cm}}{\raggedleft auto-benign, either design}
+    & \multicolumn{1}{p{1.6cm}}{\raggedleft auto-malig., planned}
+    & \multicolumn{1}{p{1.6cm}}{\raggedleft auto-malig., quantile}
+    & \multicolumn{1}{p{1.4cm}}{\raggedleft decided, test}
+    & \multicolumn{1}{p{1.9cm}}{\raggedleft benign among them (test / all)} \\
+    \midrule
+    XGBoost (22 features) & 0\% & 0\%  & 38\% & 10.7\% & 14.9\% / 11.2\% \\
+    LLM, mean of 3 seeds  & 0\% & 1\%  & \textbf{99\%} & 7.9\% & 7.4\% / 6.4\% \\
+    LLM run I             & 0\% & 13\% & 22\% & 11.5\% & 18.4\% / 13.6\% \\
+    LLM run D             & 0\% & 0\%  & 8\%  & 6.8\%  & 22.6\% / 13.8\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{itemize}
+  \item \textbf{Auto-benign at 5\% is never certified}, for any model or design. This side is out
+        of reach of the current models; no choice of procedure changes that.
+  \item \textbf{Auto-malignant at 20\% becomes attainable.} For the language model averaged over
+        its three seeds, the new design certifies in 99\% of re-splits, against 1\% for the
+        planned design. About 8\% of the nodules are then called malignant automatically, 6--7\%
+        of them benign. On our split the rule is $u = 0.833$: 9.8\% of the test nodules, 14\% of
+        them benign.
+  \item \textbf{The order only helps where validation and calibration agree.} For XGBoost the
+        validation order puts its top 5\% first, which on calibration contains 3 benign nodules
+        among 7, so the sequence often stops there (38\%). The seed-averaged language model, whose
+        scores are smoother, benefits most.
+  \item \textbf{The bound holds.} The share of benign nodules among all 962 nodules above the
+        chosen threshold never exceeds 20\% in any re-split. The test-only share can (run D):
+        in a fixed pool, a re-split with a clean calibration part leaves a dirtier test part, so
+        conditioning on certification biases the test share upwards.
+\end{itemize}
+
+Two caveats limit this result. The design was written after the exploratory result on run I, and
+the models were selected on these data; the re-splits vary only which nodules calibrate and which
+test. Confirmation needs new data: retraining on new splits, or a second dataset.
+
 \subsection{A guarantee on missed cancers}
 
 Bounding the share of \emph{all} cancers sent to auto-benign (Section~\ref{sec:methods-miss}) is

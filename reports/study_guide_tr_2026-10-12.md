@@ -233,6 +233,26 @@ Adayları en sıkıdan başlayarak değil, validation'daki p-değerlerine göre 
 
 Ama bu yöntemi sonuçları gördükten sonra seçtik. **Yeni bir split'te önceden sabitlenip doğrulanması gerekiyor.**
 
+### 4.2b Önceden sabitlenmiş tasarım (13 Ekim)
+Tasarımı çalıştırmadan önce yazıp GitHub'a commit'ledik. Böylece "sonuca bakıp tasarımı ayarladık" denemez.
+- **Aday eşikler:** sabit olasılıklar (0,95, 0,90…) yerine validation skorlarının yüzdelikleri: en düşük/en yüksek %5, %10, … %30. Böylece her adayda yeterince nodül var.
+- **Sıra:** adaylar validation p-değerlerine göre sıralanıyor.
+- **Test:** calibration'da fixed sequence, aynı α ve δ.
+
+Modeller sabit tutulup calibration ve test 2.000 kez yeniden bölündü.
+
+| model | otomatik iyi huylu (%5) | otomatik kötü huylu (%20), eski tasarım | otomatik kötü huylu (%20), yeni tasarım |
+|---|---|---|---|
+| XGBoost | hiç | %0 | %38 |
+| LLM (3 seed ortalaması) | hiç | %1 | **%99** |
+
+- **Otomatik iyi huylu tarafı hiçbir tasarımda geçmiyor.** Orada sınır modelin kendisi, prosedür değil.
+- **Otomatik kötü huylu tarafı artık neredeyse her bölünmede sertifikalanıyor (LLM).** Nodüllerin yaklaşık %8'i otomatik "kötü huylu" deniyor ve bunların %6–7'si aslında iyi huylu (sınır %20). Bizim bölünmede eşik u = 0,833: test nodüllerinin %9,8'i, bunların %14'ü iyi huylu.
+- **XGBoost'ta neden daha az?** Validation sırası onun en üst %5'lik grubunu başa koyuyor, ama o grup calibration'da kirli (7 nodülde 3 iyi huylu). Sıra orada takılıyor.
+- **Dürüst sınırlama:** tasarımı, run I'deki keşif sonucunu gördükten sonra yazdık. Yeniden bölmeler de sadece hangi nodülün calibration'a hangisinin test'e düştüğünü değiştiriyor. Kesin doğrulama yeni veri ister: yeniden eğitim ya da ikinci veri seti.
+
+**Hocaya söylenecek:** "Prosedürü düzeltince otomatik kötü huylu garantisi ulaşılabilir hale geldi. Otomatik iyi huylu garantisi için ise daha iyi bir model gerekiyor. Bu, tezin 'hangi garanti ne zaman mümkün' sorusuna net bir cevap."
+
 ### 4.3 Kaçırma oranı kuralı
 | model | test'te otomatik oran | test kaçırma oranı | otomatik "iyi huylu" içindeki kanser |
 |---|---|---|---|

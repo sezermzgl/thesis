@@ -26,9 +26,11 @@ calibration set are the two ways to reach it.
 The experiments show a third lever, in the procedure itself. The planned fixed sequence starts at
 the strictest candidate, where only a handful of nodules fall, and stops at the first failure.
 For the auto-malignant side of XGBoost this blocks a threshold that would pass on its own. A
-sequence that starts where the evidence is, for example candidates at quantiles of the validation
-scores ordered by their validation $p$-values, keeps the guarantee and is the natural design for a
-confirmatory study (Chapter~\ref{ch:future}).
+sequence that starts where the evidence is, with candidates at quantiles of the validation scores
+ordered by their validation $p$-values, keeps the guarantee and turns the auto-malignant side from
+almost never certified into certified in 99\% of re-splits for the seed-averaged language model
+(Section~\ref{sec:results-ltt-design}). On the auto-benign side no design helps: there the limit
+is the model.
 
 Lowering the requirement is a fourth lever. The miss-rate variant and Mondrian split conformal
 prediction give a guarantee of a different kind, on the share of cancers missed rather than on
