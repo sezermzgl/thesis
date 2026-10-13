@@ -62,6 +62,8 @@ def readable_feature_name(raw_name: str) -> str:
         return f"LoG {sigma} {name}"
     if image_type.startswith("wavelet-"):                     # e.g. 'wavelet-LH'
         return f"Wavelet {image_type.split('-', 1)[1]} {name}"
+    if image_type == "peritumoral":                           # ring around the nodule
+        return f"Peritumoral {name}"
     return f"{image_type} {name}"
 
 

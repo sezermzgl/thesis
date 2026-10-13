@@ -373,5 +373,39 @@ class TestClinicalFeatures(unittest.TestCase):
         self.assertAlmostEqual(frac, 0.5, delta=0.06)
 
 
+class TestPeritumoral(unittest.TestCase):
+    def setUp(self):
+        self.gray = np.full((120, 120), 100.0)
+        self.gray[:, :10] = 0.0                      # black area outside the sector
+        yy, xx = np.mgrid[:120, :120]
+        self.mask = (yy - 60) ** 2 + (xx - 60) ** 2 <= 20 ** 2
+
+    def test_ring_width_and_exclusions(self):
+        from conformal_triage import peritumoral
+        ring = peritumoral.ring_mask(self.gray, self.mask)
+        self.assertEqual(peritumoral.ring_width(self.mask), 10)      # half of radius 20
+        self.assertFalse((ring & self.mask).any())
+        yy, xx = np.nonzero(ring)
+        d = np.hypot(yy - 60, xx - 60)
+        self.assertGreater(d.min(), 19.5)
+        self.assertLessEqual(d.max(), 31.0)
+
+    def test_ring_stays_inside_sector(self):
+        from conformal_triage import peritumoral
+        mask = np.zeros_like(self.mask)
+        mask[50:70, 12:30] = True                    # nodule next to the sector edge
+        ring = peritumoral.ring_mask(self.gray, mask)
+        self.assertFalse(ring[:, :10].any())
+        self.assertTrue(ring.any())
+
+    def test_names(self):
+        from conformal_triage import peritumoral
+        from conformal_triage.prompts import readable_feature_name
+        key = peritumoral.rename("original_glcm_Idm")
+        self.assertEqual(key, "peritumoral_glcm_Idm")
+        self.assertEqual(readable_feature_name(key), "Peritumoral Idm")
+        self.assertEqual(readable_feature_name("peritumoral_firstorder_Mean"), "Peritumoral Mean")
+
+
 if __name__ == "__main__":
     unittest.main()
