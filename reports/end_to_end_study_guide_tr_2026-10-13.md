@@ -90,6 +90,12 @@ Test etmek için "two-sample classifier" kullanılır: bir model iki seti birbir
 
 Hastaya "iyi huylu" denince onu ilgilendiren soru ikincisi. Kanser oranı yüksek olduğunda (%35) ikincisini sağlamak çok daha zor.
 
+**Dikkat:** ikisi de false negative'le (kanser olduğu hâlde "iyi huylu" demek) ilgili, sadece paydaları farklı:
+- kaçırma oranı = FN / tüm kanserler = 1 − duyarlılık (false negative rate),
+- R1 = FN / "iyi huylu" denenler = 1 − NPV (false omission rate).
+
+False positive (iyi huyluya "kötü huylu" demek) ise R2'nin konusu: R2 = FP / "kötü huylu" denenler = 1 − PPV.
+
 ### B4. LTT (Learn then Test)
 1. Aday eşikler önceden belirlenir.
 2. Her aday için şu hipotez test edilir: **H0: "bu eşikte gerçek risk α'dan büyük."**

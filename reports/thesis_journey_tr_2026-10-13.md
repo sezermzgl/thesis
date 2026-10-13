@@ -77,7 +77,11 @@ Yeni eğitim yapmadan run 2'nin çıktılarını yeniden inceledik:
 | kanserlerin ≤ %5'i | P ≤ 0,22 | %7,2 | %5,1 |
 | kanserlerin ≤ %10'u | P ≤ 0,28 | %24,4 | %15,3 (kayma yüzünden ihlal edildi) |
 
-Bu analiz, çalışmanın geri kalanında süren bir ayrımı getirdi: **kaçırılan kanserler** üzerine bir garanti (program düzeyi) ile **her "iyi huylu" kararı** üzerine bir garanti (hasta düzeyi, R1).
+Bu analiz, çalışmanın geri kalanında süren bir ayrımı getirdi. İkisi de **aynı hatayla** ilgili: kanser olduğu hâlde "iyi huylu" denen nodül (false negative, FN). Fark, FN'nin **neye bölündüğünde**:
+- **Kaçırma oranı** = FN / bütün kanserler. Program düzeyinde bir soru: "kanserlerin yüzde kaçını kaçırıyorum?" İstatistikte false negative rate, yani 1 − duyarlılık.
+- **R1** = FN / "iyi huylu" denen bütün nodüller. Hasta düzeyinde bir soru: "iyi huylu dediğim bir hasta aslında yüzde kaç ihtimalle kanser?" İstatistikte false omission rate, yani 1 − NPV.
+
+Örnek: 1.000 nodül, 350 kanser, 200'üne "iyi huylu" deniyor, bunların 20'si kanser. Kaçırma oranı 20/350 = %5,7, R1 = 20/200 = %10. Kanser oranı yüksekken R1'i %5'te tutmak çok daha zor. False positive (iyi huyluya "kötü huylu" demek) ise R2'nin konusu.
 
 > 🗣 **Anlatım notu:** "Burada iki farklı garanti türü olduğunu fark ettim. Kaçırma oranı program düzeyinde: 'kanserlerin %95'ini yakalarım'. R1 hasta düzeyinde: 'iyi huylu dediğimin %95'i gerçekten iyi huylu'. İkincisi çok daha zor."
 
