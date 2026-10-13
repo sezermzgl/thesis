@@ -16,7 +16,7 @@ import math
 import numpy as np
 from scipy import ndimage as ndi
 
-from .clinical import OUTSIDE_SECTOR, _disk
+from .clinical import OUTSIDE_SECTOR
 
 PREFIX = "peritumoral_"
 RING_FRACTION = 0.5
@@ -36,7 +36,17 @@ def ring_mask(gray: np.ndarray, mask: np.ndarray, fraction: float = RING_FRACTIO
     if not mask.any():
         raise ValueError("empty mask")
     width = ring_width(mask, fraction, min_width)
-    return ndi.binary_dilation(mask, _disk(width)) & ~mask & (np.asarray(gray) >= outside)
+    # Euclidean distance to the nodule: the same ring as a dilation with a disk of radius `width`,
+    # without the memory and time a large structuring element needs on full-size images.
+    near = ndi.distance_transform_edt(~mask) <= width
+    return near & ~mask & (np.asarray(gray) >= outside)
+
+
+def crop_to(ring: np.ndarray, margin: int = 2) -> tuple[slice, slice]:
+    """Bounding box of the ring plus a small margin, to pass PyRadiomics a small image."""
+    rows, cols = np.nonzero(ring)
+    return (slice(max(rows.min() - margin, 0), rows.max() + margin + 1),
+            slice(max(cols.min() - margin, 0), cols.max() + margin + 1))
 
 
 def rename(pyradiomics_key: str) -> str:
