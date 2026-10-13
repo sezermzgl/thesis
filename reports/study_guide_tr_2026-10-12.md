@@ -1,14 +1,36 @@
-# Toplantı çalışma materyali (2026-10-12)
+# Toplantı çalışma materyali (güncelleme: 2026-10-13)
 
 Bu doküman, hocana tezin şu anki durumunu anlatabilmen için hazırlandı. Önce kavramları sıfırdan açıklıyor, sonra her deneyi "ne sorduk, ne yaptık, ne bulduk, neden önemli" sırasıyla anlatıyor. Sonda 10 dakikalık bir anlatım akışı ve muhtemel sorular ile cevapları var.
 
-İngilizce rapor: `thesis_repo/reports/consolidated_report_2026-10-12.md`. Tablolar ve sayılar oradakilerle aynı.
+İngilizce rapor: `thesis_repo/reports/consolidated_report_2026-10-12.md` ve rapor sayfası (aynı içerik). Tablolar ve sayılar oradakilerle aynı.
+
+---
+
+## Bugün için çalışma planı
+
+Önerilen sıra ve süre (toplam yaklaşık 3–4 saat):
+
+1. **Bölüm 0 ve 1 (30 dk):** kavramlar. Özellikle 1.6 (AUC), 1.8 (bootstrap), 1.9 (seed) ve 1.11 (bilgi tavanı). Bunları kendi cümlelerinle anlatabilmelisin.
+2. **Bölüm 2 (60 dk, en önemlisi):** conformal kavramları. 2.3'teki "iki farklı hata oranı" örneğini kâğıda kendin yeniden hesapla. 2.4'teki binom testini bir örnekle dene: 93 nodülde 1 kanser varsa p = P(Binom(93; 0,05) ≤ 1) ≈ 0,05.
+3. **Bölüm 3 ve 4 (60 dk):** deneylerin hikâyesi ve conformal sonuçlar. Her tablonun "tek cümlelik mesajını" yaz.
+4. **Bölüm 7 (20 dk):** 10 dakikalık anlatımı sesli prova et.
+5. **Bölüm 8 (30 dk):** soruları cevaplarına bakmadan önce kendin cevaplamaya çalış.
+
+**Kendini kontrol soruları** (cevapları metinde var):
+- AUC 0,785 ne demek, bir cümleyle?
+- Bootstrap aralığı neden seed farkını kapsamıyor?
+- Mondrian'ın garantisi ile LTT'nin garantisi arasındaki fark ne? (ortalamada mı, olasılıkla mı)
+- %5 hedefi için 2 kanserle en az kaç nodül gerekir? (124)
+- Planlanan LTT XGBoost'ta bile neden sertifika vermedi? (iki sebep)
+- Yeni LTT tasarımı neyi değiştirdi, neyi değiştiremedi?
+- Neden daha büyük model ya da daha iyi prompt bizi otomatik iyi huylu garantisine götürmez?
+- Halka özellikleri neden işe yaramadı, TI-RADS özellikleri neden yaradı?
 
 ---
 
 ## Bölüm 0: Tek cümlelik özet
 
-> TN3K'da radyomik özellikleri metne çevirip LLM'e sınıflandırma yaptırdık. TI-RADS'tan esinlenen 6 yeni özellik LLM'i belirgin şekilde iyileştirdi, ama LLM aynı bilgiyi gören XGBoost'un altında kaldı ve ona hiçbir bilgi eklemedi. Conformal katmanda istediğimiz sıkı garanti (otomatik "iyi huylu" denen nodüllerin en fazla %5'i kanser) hiçbir modelle sağlanamadı. Daha gevşek garantiler (kaçırılan kanser oranı ≤ %5) sağlandı, ama bu garantilerin otomatik "iyi huylu" grubunda hâlâ yaklaşık %10 kanser var.
+> TN3K'da radyomik özellikleri metne çevirip LLM'e sınıflandırma yaptırdık. TI-RADS'tan esinlenen 6 yeni özellik LLM'i belirgin şekilde iyileştirdi, ama LLM aynı bilgiyi gören XGBoost'un altında kaldı ve ona hiçbir bilgi eklemedi. Conformal katmanda otomatik "iyi huylu" garantisi (grubun en fazla %5'i kanser) hiçbir modelle sağlanamadı. Otomatik "kötü huylu" garantisi (en fazla %20 iyi huylu) ise önceden sabitlenmiş yeni bir test tasarımıyla neredeyse her bölünmede sağlandı. Daha gevşek garantiler (kaçırılan kanser oranı ≤ %5) da sağlandı, ama bu garantilerin otomatik "iyi huylu" grubunda hâlâ yaklaşık %10 kanser var.
 
 Tezin ana mesajı: **"Hangi garanti ne zaman mümkün ve ne işe yarar."** Yöntem başarısız olmadı. Hangi garantinin bu veriyle ve bu modellerle mümkün olduğunu ölçtük.
 
@@ -56,6 +78,9 @@ Eğitimdeki rastgeleliğin başlangıç noktası: LoRA ağırlıklarının başl
 
 ### 1.10 XGBoost
 Karar ağaçlarını art arda ekleyen klasik tablo modeli. Tablo verisinde genelde en güçlü yöntemlerden biri. Biz ayarlamadan (300 ağaç, derinlik 3) "baseline" olarak kullanıyoruz.
+
+### 1.11 Bilgi tavanı
+Bir model, kendisine verilen bilginin ötesine geçemez. LLM ve XGBoost aynı 22 sayıyı görüyor. Bu sayılarla ulaşılabilecek en iyi ayırma gücü kabaca XGBoost'un seviyesi (0,835). Daha büyük bir LLM ya da daha iyi bir prompt, LLM'i en fazla bu tavana yaklaştırabilir, tavanı yükseltemez. Tavanı yükseltmenin tek yolu yeni bilgi eklemek: TI-RADS özellikleri bunu yaptı (+0,06), halka özellikleri yapamadı.
 
 ---
 
@@ -200,6 +225,23 @@ En iyi kurulum tek seed'le test 0,804 vermişti. Üç seed: 0,804 / 0,768 / 0,78
 
 **Anlamı:** LLM, XGBoost'un sıralamasının daha zayıf bir kopyasını öğreniyor.
 
+### 3.8 Nodül çevresi (peritümöral) özellikler: "Daha fazla görüntü bilgisi işe yarar mı?"
+**Fikir:** TI-RADS özellikleri nodülün çevresiyle ilişkisini ölçünce kazanç gelmişti. Peki nodülün etrafındaki dokunun kendisi de bilgi taşıyor mu?
+
+**Yöntem:** nodülün etrafında bir halka tanımladık (genişliği nodülün eşdeğer yarıçapının yarısı, en az 5 piksel) ve bu halkada PyRadiomics özellikleri çıkardık (93 özellik).
+
+**Karar kuralı, önceden sabitlendi:** halka özellikleri XGBoost'a eklendiğinde calibration'da anlamlı kazanç olursa LLM'e geçecekti.
+
+| XGBoost | val | cal | test |
+|---|---|---|---|
+| nodül + TI-RADS | 0,828 | 0,848 | 0,831 |
+| + 8 halka özelliği | 0,832 | 0,851 | 0,834 |
+| sadece halka | 0,699 | 0,671 | 0,693 |
+
+Calibration farkı +0,002, aralık [−0,009, +0,014], yani **kazanç yok, LLM'e geçilmedi.** Halkada sinyal var (tek başına 0,69), ama bu bilgi nodülün kendi özelliklerinde ve TI-RADS özelliklerinde zaten mevcut. Seçilen halka özellikleri çoğunlukla parlaklık istatistikleri, yani ekojenite oranının zaten karşılaştırdığı şey.
+
+**Ders:** TI-RADS özellikleri, standart radyomiğin hiç ölçmediği yönelim ve kenar şekli gibi bilgileri getirdiği için işe yaradı. Halka ise eldeki bilgiyi tekrarladı. Skoru yükselten şey özellik sayısı değil, yeni bilgi.
+
 ---
 
 ## Bölüm 4: Conformal sonuçlar
@@ -313,8 +355,9 @@ Biz düzgün değerlendirilmiş bir XGBoost ve seed tekrarlarıyla LLM'in 0,04�
 2. **(1 dk) Altyapı:** "İlk denemede split exchangeable değildi ve özelliklerde hatalar vardı. Pooled split ve v2 özelliklerle düzelttik. v2, LLM'e +0,05 kazandırdı."
 3. **(2 dk) Ana olumlu bulgu:** "TI-RADS'tan esinlenen 6 özellik yazdım. LLM'i 3 eşleştirilmiş seed'de ortalama +0,06 AUC iyileştirdi, her seed'de anlamlı. En iyi LLM test AUC'si 0,785 ± 0,018."
 4. **(2 dk) LLM ve XGBoost:** "Aynı 22 özellikle XGBoost 0,835. Daha büyük modeller (7B, Llama), farklı prompt formatları ve Ra et al.'ın ayarları kazandırmadı. İkisini birleştirince stacking LLM'e −0,04 ağırlık verdi. LLM ek bilgi taşımıyor."
-5. **(3 dk) Conformal:** "Planladığımız LTT (%5 kanser içeren otomatik iyi huylu grubu) hiçbir modelde, XGBoost'ta bile sertifika vermedi. Bunun için 93 nodülde en fazla 1 kanser gerekiyor ve iki sebebi var: kuyruklar yeterince temiz değil ve fixed sequence en sıkı, çok küçük eşikten başlıyor. Kaçırma oranı garantisi ve Mondrian ise sağlanıyor. 4.000 yeniden bölmeyle teoriyle birebir tuttuğunu doğruladım. Ama otomatik iyi huylu grubunda hâlâ %6–10 kanser var. Yani geçerli garanti, güvenli karar demek değil."
-6. **(1 dk) Sonraki adımlar ve sorular:** aşağıdaki "hocaya sorulacaklar" listesi.
+5. **(3 dk) Conformal:** "Planladığımız LTT hiçbir modelde, XGBoost'ta bile sertifika vermedi. İki sebebi var: kuyruklar yeterince temiz değil (%5 için 93 nodülde en fazla 1 kanser gerekiyor) ve fixed sequence en sıkı, çok küçük eşikten başlıyor. İkinci sorunu çözen bir tasarımı çalıştırmadan önce sabitledim: adaylar validation yüzdeliklerinde, sıra validation p-değerlerine göre. 2.000 yeniden bölmede otomatik kötü huylu garantisi LLM için %99 oranında sağlandı. Otomatik iyi huylu garantisi ise hiçbir tasarımda sağlanmadı, orada sınır model. Kaçırma oranı ve Mondrian garantileri de sağlanıyor, teoriyle birebir tuttuğunu yeniden bölmelerle doğruladım. Ama otomatik iyi huylu grubunda hâlâ %6–10 kanser var: geçerli garanti, güvenli karar demek değil."
+6. **(1 dk) Skoru yükseltme denemeleri:** "Model boyutu, prompt formatı ve nodül çevresi özellikleri kazandırmadı. Tek gerçek kazanç yeni bilgiden, TI-RADS özelliklerinden geldi. Skoru daha fazla yükseltmenin yolu görüntünün kendisini kullanmak."
+7. **(1 dk) Sonraki adımlar ve sorular:** aşağıdaki "hocaya sorulacaklar" listesi.
 
 ---
 
@@ -341,6 +384,15 @@ C: Üç kez: Qwen 7B (iki farklı LR) ve Llama-2-7B. Hepsi 1.5B'nin altında kal
 **S: TI-RADS özellikleri gerçekten TI-RADS mi?**
 C: Hayır, görüntüden otomatik hesaplanan yaklaşımlar. Üçü TI-RADS'ın beklediği yönde çalıştı, ekojenite oranı sıvıyı ölçtüğü için ters yönde çıktı, parlak nokta özelliği sinyal vermedi. Ayarlar etiketlere bakmadan önceden sabitlendi.
 
+**S: LTT tasarımını sonuçları gördükten sonra değiştirdin. Bu hile değil mi?**
+C: Haklı bir soru, ve sınırlamayı açıkça yazıyorum. Yeni tasarımı çalıştırmadan önce yazıp GitHub'a commit'ledim, git geçmişinde tarih belli. Tasarım garantiyi bozmuyor, çünkü aday sırası sadece validation verisine bakıyor, calibration'a dokunmuyor. Ama fikir, run I'deki keşif sonucundan sonra geldi ve modeller bu veriyle seçildi. Bu yüzden sonucu "doğrulanmış" değil, "yeni veride doğrulanması gereken güçlü bir aday" olarak sunuyorum.
+
+**S: Neden daha büyük model ya da daha iyi prompt denemiyorsun?**
+C: Bilgi tavanı yüzünden. LLM, XGBoost'un gördüğü 22 sayıyı görüyor ve hibrit analiz LLM'in bu sayılardan ek bilgi çıkarmadığını gösterdi. En iyi senaryoda LLM XGBoost'a (0,835) yetişir. Otomatik iyi huylu garantisi için ise AUC yaklaşık 0,9 gerekiyor ve XGBoost bile hiçbir bölünmede bu garantiyi alamadı. Üç büyük model denemesi de bunu destekliyor.
+
+**S: Nodül çevresinin özelliklerini denedin mi?**
+C: Evet. Halkada 93 radyomik özellik çıkardım ve önceden bir karar kuralı koydum. XGBoost'ta kazanç yoktu (calibration +0,002, aralık sıfırı içeriyor), bu yüzden LLM'e geçmedim. Halka tek başına 0,69 AUC veriyor ama bilgisi zaten mevcut özelliklerde var.
+
 **S: %35 kanser oranı gerçekçi mi?**
 C: Hayır, bu bir biyopsi popülasyonu. Gerçek tarama popülasyonunda oran çok daha düşük, bu da grup içi kanser oranını kolaylaştırır. Sonuçlar doğrudan taşınmaz.
 
@@ -348,8 +400,9 @@ C: Hayır, bu bir biyopsi popülasyonu. Gerçek tarama popülasyonunda oran çok
 
 ## Bölüm 9: Hocaya sorulacaklar
 
-1. **Ana çerçeve:** "Hangi garanti ne zaman mümkün" çerçevesi tez için uygun mu? Yoksa daha güçlü bir pozitif sonuç (örneğin önceden kaydedilmiş, geçebilen bir LTT tasarımı) mı beklenir?
-2. **LTT tasarımı:** aday eşikleri validation quantile'larına göre belirleyip validation p-değerlerine göre sıralayan, önceden sabitlenmiş bir tasarımı yeni split'lerde denemeli miyim?
+1. **Ana çerçeve:** "Hangi garanti ne zaman mümkün" çerçevesi tez için uygun mu?
+2. **LTT tasarımı:** önceden sabitlenmiş yeni tasarım otomatik kötü huylu garantisini sağlıyor. Bunu yeni veride doğrulamak için modeli yeni split'lerde yeniden eğitmek mi, yoksa ikinci bir veri seti mi daha uygun?
+2b. **Görüntü tabanlı model:** otomatik iyi huylu garantisine yaklaşmanın tek gerçekçi yolu görüntünün kendisini kullanmak (CNN ya da vision-language model). Bu tezin kapsamına girer mi?
 3. **İkinci veri seti:** ThyroidXL'i harici doğrulama için eklemek tezin kapsamına girer mi?
 4. **Raporlama:** seed ortalamaları ve bootstrap aralıklarını birlikte raporlamak yeterli mi, çoklu karşılaştırma düzeltmesi istenir mi?
 5. **Klinik anlam:** "otomatik iyi huylu grubunda %6–10 kanser" sonucunu TI-RADS risk kategorileriyle bu şekilde yorumlamak doğru mu?

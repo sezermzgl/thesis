@@ -9,7 +9,7 @@ The thesis asks two questions on TN3K thyroid ultrasound: (1) can a fine-tuned L
 1. **Best LLM setting**: Qwen2.5-1.5B, 16 mRMR radiomics features plus 6 TI-RADS-motivated features, plain decimal values. Test AUC **0.785 ± 0.018** (mean ± SD over three training seeds). A single run (seed 42) gave 0.804, which was the upper end.
 2. **The TI-RADS-motivated features are the largest gain**: +0.059 test AUC on average over three matched seeds (smallest +0.050; every matched pair's 95% interval excludes zero). They also help XGBoost (+0.026).
 3. **The LLM stays below a tabular model with the same information**: XGBoost on the same 22 features reaches test AUC 0.835. Fusing the two does not help: a stacker fitted on validation gives the LLM a weight of −0.04, and the probabilities correlate 0.87. The LLM adds no information beyond XGBoost.
-4. **Larger backbones, other prompt formats and the settings of Ra et al. do not help**: Qwen2.5-7B (two learning rates), Llama-2-7B, z-score/percentile/plain-language ("rich") formats are equal or worse.
+4. **Larger backbones, other prompt formats, the settings of Ra et al. and peritumoral radiomics do not help**: Qwen2.5-7B (two learning rates), Llama-2-7B, z-score/percentile/plain-language ("rich") formats are equal or worse, and PyRadiomics features of a ring around the nodule add nothing to XGBoost (calibration +0.002, interval includes zero).
 5. **The planned LTT triage certifies nothing**, for the LLM *and* for XGBoost. Two reasons: the 5% auto-benign target needs a large, very clean tail (e.g. at most 1 cancer in 93 nodules), which neither model has; and the planned fixed sequence starts at the strictest threshold, where the groups are too small, and stops there.
 6. **Guarantees that are attainable**: Mondrian split CP and an LTT rule on the *miss rate* (share of all cancers sent to auto-benign ≤ 5%) both hold. Re-splitting calibration and test 4,000 times confirms the Mondrian coverage of cancers averages 0.950–0.951, as the theory says. But the auto-benign group they produce still contains about 10% cancers for the LLM (6% for XGBoost), against a 35% base rate. **A valid guarantee is not the same as a safe decision.**
 
@@ -113,6 +113,19 @@ XGBoost (300 trees, depth 3, untuned) on exactly the 22 features of the best LLM
 - The stacker's weights are 0.99 for XGBoost and −0.04 for the LLM: it learns to ignore the LLM.
 
 **Conclusion: the fine-tuned LLM reproduces a weaker version of the tabular model's ranking and carries no additional information.** This does not show that LLMs are useless for this task in general; it shows that feeding them the same numbers a tabular model sees does not add anything.
+
+### 5.6 Peritumoral radiomics (2026-10-13)
+
+PyRadiomics features (all families except shape) in a ring around the nodule: width half the equivalent radius, at least 5 px; 93 features, 49 after the near-duplicate filter (`conformal_triage/peritumoral.py`, notebook A4b/B2). Rule fixed before running: pass them to the LLM only if adding mRMR 8 of them to XGBoost improves calibration AUC with an interval above zero.
+
+| XGBoost features | val | cal | test |
+|---|---|---|---|
+| nodule mRMR 16 + TI-RADS | 0.828 | 0.848 | 0.831 |
+| + ring mRMR 8 | 0.832 | 0.851 | 0.834 |
+| + all 49 ring features | 0.831 | 0.853 | 0.832 |
+| ring mRMR 16 only | 0.699 | 0.671 | 0.693 |
+
+Calibration +0.002 [−0.009, +0.014]: no gain, so no LLM run. The ring carries signal (0.69 alone) but it is redundant with the nodule and TI-RADS features; mRMR picks mostly brightness statistics, close to what the echogenicity ratio already compares.
 
 ## 6. The conformal layer: what each method guarantees
 
