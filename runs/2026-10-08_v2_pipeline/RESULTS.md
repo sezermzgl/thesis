@@ -167,3 +167,17 @@ Notes:
 - The error share over all 962 nodules below the chosen threshold never exceeds α in any re-split. The test-only share does for run D (93%): in a fixed pool, a re-split whose calibration part is clean leaves a dirtier test part, so conditioning on certification biases the test share upwards; the guarantee concerns the population risk.
 - Caveat: the design was written after the exploratory validation-ordered result on run I, and the models were selected on these data. The re-splits vary only the calibration/test assignment. A confirmation needs new data (retraining on new splits or a second dataset).
 
+## Peritumoral radiomics (2026-10-13)
+
+Notebook A4b and B2 (commit `7d4e3c3`); `conformal_triage/peritumoral.py`. PyRadiomics (all families except shape, same scaling and 64 grey levels as v2) in a ring around the nodule: width half the equivalent radius, at least 5 px, nodule and outside-sector pixels excluded; 93 features, 49 after the near-duplicate filter. Decision rule fixed before running: add the ring features to the LLM only if adding mRMR 8 of them to XGBoost helps on calibration (paired interval above zero).
+
+| XGBoost features | n | val | cal | test | cancers in lowest 15% of cal |
+|---|---|---|---|---|---|
+| nodule mRMR 16 + TI-RADS | 22 | 0.828 | 0.848 | 0.831 | 2/78 |
+| + ring mRMR 8 | 30 | 0.832 | 0.851 | 0.834 | 2/78 |
+| + all ring (49) | 71 | 0.831 | 0.853 | 0.832 | 3/78 |
+| joint mRMR 16 (nodule + ring) + TI-RADS | 22 | 0.836 | 0.840 | 0.821 | 3/78 |
+| ring mRMR 16 only | 16 | 0.699 | 0.671 | 0.693 | 8/78 |
+
+Adding ring mRMR 8: calibration +0.002 [−0.009, +0.014], test +0.003 [−0.010, +0.016]. **No gain; by the rule, no LLM run.** The ring carries signal on its own (0.69) but it is redundant with the nodule and TI-RADS features; the selected ring features are mostly brightness statistics (Maximum, Range, 90Percentile, Entropy), close to what the echogenicity ratio already compares.
+

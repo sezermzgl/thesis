@@ -317,6 +317,42 @@ runs I and D (+0.050) did not overstate the gain: on average it is about $+0.06$
 than for XGBoost. Training with the features was also steadier: validation AUC rose over the
 epochs in all three seeds.
 
+\subsection{Peritumoral radiomics}
+\label{sec:results-peri}
+
+Since information about the surroundings helped, the PyRadiomics features were also computed in a
+ring of tissue around the nodule (width half of the nodule's equivalent radius, at least 5
+pixels; all families except shape; 93 features, 49 after the near-duplicate filter;
+\texttt{conformal\_triage/peritumoral.py}). The rule was fixed before running: the ring features
+would be given to the language model only if adding eight of them (mRMR) to XGBoost improved the
+calibration AUC with an interval above zero.
+
+\begin{table}[ht]
+  \centering
+  \small
+  \caption{XGBoost with peritumoral (ring) features, pooled split.}
+  \label{tab:results-peri}
+  \begin{tabular}{lrrrr}
+    \toprule
+    features & number & val & cal & test \\
+    \midrule
+    nodule mRMR 16 + TI-RADS                    & 22 & 0.828 & 0.848 & 0.831 \\
+    \quad + ring mRMR 8                         & 30 & 0.832 & 0.851 & 0.834 \\
+    \quad + all ring features                   & 71 & 0.831 & 0.853 & 0.832 \\
+    joint mRMR 16 (nodule and ring) + TI-RADS   & 22 & 0.836 & 0.840 & 0.821 \\
+    ring mRMR 16 only                           & 16 & 0.699 & 0.671 & 0.693 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Adding the ring features changes the calibration AUC by $+0.002$, with a 95\% interval from
+$-0.009$ to $+0.014$, and the test AUC by $+0.003$ (from $-0.010$ to $+0.016$). By the rule they
+were not passed to the language model. The ring carries signal on its own (test 0.693), but it is redundant with the nodule and
+TI-RADS-motivated features: the ring features mRMR selects are mostly brightness statistics, close
+to what the echogenicity ratio already compares. What helped was not more features about the
+nodule's neighbourhood but the specific information TI-RADS points to, such as orientation and
+outline, that standard radiomics does not measure.
+
 \section{How does the language model compare with XGBoost?}
 \label{sec:results-xgb}
 
