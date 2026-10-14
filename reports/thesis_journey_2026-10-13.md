@@ -153,6 +153,19 @@ This introduced the distinction that runs through the rest of the work: a guaran
 
 Total points → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Our features are automatic, continuous approximations of these signs; they do not reproduce the radiologist's points.
 
+**Feature engineering: what TI-RADS adds to PyRadiomics.** PyRadiomics already measures shape, brightness and texture, but by design it (a) is rotation-invariant, so it ignores how the nodule is oriented, and (b) uses only the pixels inside the mask, so it never compares the nodule with the tissue around it. Two TI-RADS signs rest exactly on these.
+
+| type | what TI-RADS looks at | our feature | why PyRadiomics misses it |
+|---|---|---|---|
+| new view | orientation | taller-than-wide ratio = vertical / horizontal extent of the mask | MajorAxisLength, Elongation use the nodule's own axes: a lying and a standing ellipse get the same values |
+| new view | contrast with the surroundings | echogenicity ratio = mean inside / mean of a ring of surrounding tissue | first-order sees only absolute brightness inside the mask, which depends on scanner gain |
+| new view | boundary (inside vs outside) | margin sharpness = gradient across the boundary / spread of the surroundings | needs pixels on both sides of the boundary; PyRadiomics sees only the inside |
+| partial overlap | outline irregularity | solidity = area / convex-hull area | related to Sphericity, PerimeterSurfaceRatio; solidity targets lobulation directly |
+| partial overlap | fluid content | anechoic fraction = share of pixels much darker than the ring | related to first-order percentiles, but relative to the surroundings |
+| partial overlap | punctate bright spots | punctate foci density = small, separate bright spots per 1,000 pixels | first-order max / 90th percentile see bright pixels, not whether they form small separate spots |
+
+So the engineering contribution is two views PyRadiomics structurally lacks (orientation and context), plus three clinically defined summaries of information PyRadiomics only spreads over many features. Evidence that this is new information: with matched seeds, adding these features raised the LLM's AUC by +0.059 on average (minimum +0.050).
+
 **What was done.** Six features were written from the image and mask, with settings fixed before looking at labels: taller-than-wide ratio, echogenicity ratio, punctate foci density, solidity, margin sharpness, anechoic fraction. Three behaved as TI-RADS predicts; the echogenicity ratio pointed the wrong way because it mostly measures fluid (correlation −0.78 with the anechoic fraction).
 
 | feature | TI-RADS sign | train AUC alone | direction |

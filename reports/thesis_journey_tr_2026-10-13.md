@@ -196,6 +196,21 @@ Toplam puan → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Bizim özel
 
 > 🗣 Kısaca: "TI-RADS, radyologların beş işarete puan verdiği bir sistem: yapı, ekojenite, şekil, kenar ve parlak noktalar. Ben bu beş işareti görüntüden otomatik ölçen altı özellik yazdım. PyRadiomics bunların özellikle şekil yönelimini ve çevreyle kontrastı ölçmüyordu."
 
+**Feature engineering: TI-RADS, PyRadiomics'e ne kattı?** PyRadiomics zaten şekli, parlaklığı ve dokuyu ölçüyor. Ama tasarımı gereği (a) dönmeden bağımsız (rotation-invariant), yani nodülün nasıl durduğuna bakmıyor; (b) sadece maskenin içindeki piksellere bakıyor, yani nodülü çevresindeki dokuyla hiç karşılaştırmıyor. TI-RADS'ın iki işareti tam olarak bunlara dayanıyor.
+
+| tür | TI-RADS neye bakıyor | bizim özelliğimiz | PyRadiomics neden kaçırıyor |
+|---|---|---|---|
+| yeni bakış | yön | taller-than-wide oranı = maskenin dikey / yatay uzunluğu | MajorAxisLength, Elongation nodülün kendi eksenlerine göre: yatan ve dik duran elips aynı değeri alır |
+| yeni bakış | çevreyle kontrast | ekojenite oranı = içerinin ortalaması / çevredeki halkanın ortalaması | first-order sadece maskenin içindeki mutlak parlaklığı görür, bu da cihazın gain ayarına bağlı |
+| yeni bakış | sınır (içerisi ve dışarısı) | kenar keskinliği = sınır boyunca parlaklık değişimi / çevrenin dağınıklığı | sınırın iki tarafındaki pikseller gerekir; PyRadiomics sadece içeriyi görür |
+| kısmi örtüşme | kenar düzensizliği | solidity = alan / dışbükey zarf alanı | Sphericity, PerimeterSurfaceRatio ile akraba; solidity loblanmayı doğrudan ölçer |
+| kısmi örtüşme | sıvı içeriği | sıvı oranı = halkadan çok koyu piksellerin payı | first-order yüzdelikleriyle akraba, ama çevreye göreli |
+| kısmi örtüşme | noktasal parlak odaklar | parlak nokta yoğunluğu = 1.000 pikselde küçük, ayrı parlak nokta sayısı | first-order max / 90. yüzdelik parlak pikseli görür, küçük ayrı noktalar halinde olup olmadığını görmez |
+
+Yani mühendislik katkısı: PyRadiomics'te yapısal olarak olmayan iki bakış (yön ve çevre), artı PyRadiomics'in birçok özelliğe dağıttığı bilgiyi klinik tanımlı tek bir sayıda toplayan üç özellik. Bunun gerçekten yeni bilgi olduğunun kanıtı: aynı seed'lerle bu özellikleri eklemek LLM'in AUC'sini ortalama +0,059 artırdı (en az +0,050).
+
+> 🗣 Feature engineering için: "PyRadiomics şekli ölçüyor ama yönü ölçmüyor, nodülün içine bakıyor ama çevresine bakmıyor. TI-RADS'ın en güçlü işaretleri tam bu ikisine dayanıyor. Ben bu iki bakışı ekleyen özellikleri ve klinik tanımlı üç özet özelliği yazdım."
+
 **Ne yaptık?** Görüntü ve maskeden altı özellik yazdık. Ayarları etiketlere bakmadan önce sabitledik.
 
 | özellik | TI-RADS işareti | tek başına train AUC'si | yön |
