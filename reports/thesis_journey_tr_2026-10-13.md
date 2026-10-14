@@ -295,6 +295,32 @@ Stacker'ın ağırlıkları: XGBoost 0,99, LLM −0,04. İki modelin skorları 0
 
 **Conformal kontroller.**
 
+**LTT tablolarını nasıl okumalı?** Otomatik iyi huylu grupta *hata*, iyi huylu dediğimiz ama aslında kanser olan nodül demek. Garanti **gerçek oran** hakkında: bu kuralın gelecekte iyi huylu diyeceği bütün nodüller arasındaki kanser oranı. Bunu hiçbir zaman tam bilemeyiz. Calibration grubu bize sadece **gözlenen oranı**, yani bir örneği veriyor. LTT şunu soruyor: *gerçek oran %5 olsaydı, gördüğümüz kadar az kanser görme ihtimalimiz ne olurdu?* Bu ihtimal δ = %5'in altındaysa, gerçek oranın %5'in altında olduğu sertifikalanıyor.
+
+**Örnek 1: grupta hiç kanser yok.** Gerçek oran %5 ise her nodülün iyi huylu olma ihtimali 0,95.
+
+| grup | gerçek oran %5 olsaydı hepsinin iyi huylu çıkma ihtimali | sonuç |
+|---|---|---|
+| 30 nodül, 0 kanser | 0,95³⁰ ≈ %21 | sık olur, bir şey kanıtlamaz |
+| 59 nodül, 0 kanser | 0,95⁵⁹ ≈ %4,8 | %5'in altında: **sertifika** |
+
+**Örnek 2: grupta kanser var.** Her kanser, gereken kanıtı büyütüyor:
+
+| gruptaki kanser | sertifika için en küçük grup | o durumda gözlenen oran |
+|---|---|---|
+| 0 | 59 | %0 |
+| 1 | 93 | %1,1 |
+| 2 | 124 | %1,6 |
+| 3 | 153 | %2,0 |
+
+Yani gözlenen oranın %5'in biraz altında olması yetmiyor, %0–2 civarında olması gerekiyor. Aradaki fark, küçük örneğin belirsizliği. Otomatik kötü huylu tarafta hedef %20, bu yüzden 14 temiz nodül yetiyor ve o taraf geçebiliyor. **Çorba benzetmesi:** bir kaşık tuzsuz diye bütün tencere tuzsuz değildir. Ne kadar çok kaşık tadarsan tencere hakkında o kadar emin olursun.
+
+**En temiz kuyruk.** Her model calibration'daki 524 nodülün her birine bir kanser olasılığı veriyor. Küçükten büyüğe sıralayınca ilk %10 (52 nodül), modelin iyi huylu olduğundan en emin olduğu nodüller. Eşik oraya konsaydı bunlar otomatik iyi huylu olacaktı. %10–20'lik dilimlere bakmamızın sebebi: %5'lik dilim (26 nodül) hiç kanser olmasa bile sertifika alamaz (59 gerekiyor), daha geniş dilimler ise daha çok kanser içeriyor. LTT'nin kendisi bu dilimleri kullanmıyor; dilimler sadece neden geçemediğini gösteriyor.
+
+**Bizim veride.** XGBoost'un en temiz 52 nodülünde 2 kanser var: gözlenen oran %3,8, %5'in altında. Ama gerçek oran %5 olsaydı bile 52 nodülde 2 ya da daha az kanser görme ihtimali yaklaşık %51. Yani bu bir kanıt değil. 2 kanserle 124 nodül gerekirdi. Grubu 104'e büyütünce üçüncü kanser giriyor ve 153 gerekiyor. LLM'in kuyruğu (52'de 4, yaklaşık %8) gözlenen oran olarak bile %5'in üstünde.
+
+> 🗣 **Anlatım notu:** "%5'in altında olduğunu %95 güvenle söyleyebilmek için en temiz grupta kanser oranının %0–2 civarında olması ve grubun 60–150 nodül büyüklüğünde olması gerekiyor. Örneğin 59 nodülün hepsi temizse yeter; 30 temiz nodül ise bir şey kanıtlamaz, çünkü oran %5 olsa bile bu her beş denemeden birinde olur. XGBoost'un en temiz grubu oranı tutturuyor ama çok küçük; LLM'inki oranı da tutturmuyor."
+
 | LTT'nin sertifikalayabileceği en küçük grup (δ = 0,05) | 0 hata | 1 | 2 | 3 |
 |---|---|---|---|---|
 | otomatik iyi huylu, α = %5 | 59 | 93 | 124 | 153 |
@@ -333,6 +359,21 @@ Stacker'ın ağırlıkları: XGBoost 0,99, LLM −0,04. İki modelin skorları 0
 | LLM run I | %0 | %13 | %22 | %11,5 / %18,4 |
 
 Otomatik kötü huylu ulaşılabilir hâle geliyor. Otomatik iyi huylu ise hiçbir model ve hiçbir tasarımda sertifikalanmıyor.
+
+**Planlanan tasarım neden başarısız oldu?** LTT aday eşikleri sabit bir sırayla test ediyor ve ilk başarısızlıkta duruyor; garantiyi koruyan şey bu kural. Planlanan sıra en güvenli otomatik kötü huylu eşikten başlıyordu: u = 0,95. Olasılığı 0,95'in üstünde olan nodül neredeyse yok. 14'ten az nodülle hiçbir şey sertifikalanamaz, bu yüzden test ilk adımda duruyor ve geçeceği u ≈ 0,80'e hiç ulaşamıyordu. Benzetme: ilk basamağı eksik bir merdiven.
+
+**İki değişiklik.**
+
+1. Adaylar olasılık değeriyle değil, nodül payıyla tanımlandı (validation'da en yüksek %5, %10, …, %30). Böylece hiçbir aday boş kalmıyor (calibration'ın %5'i ≈ 26 nodül).
+2. Sıra validation setinde belirlendi, en umut verici aday önce; sonra calibration'da bu sırayla test edildi.
+
+**Garanti neden bozulmuyor?** Sabit sıralı testin tek şartı, sıranın calibration verisi kullanılmadan belirlenmesi. Validation ayrı ve bağımsız bir küme. Tasarımın bütün detayları (adaylar, sıra, α, δ) çalıştırılmadan önce Git'e commit edildi, yani sonuca bakıp ayar oynanmadı.
+
+**"Otomatik kötü huylu" ne demek?** Triage her nodülü üç kutudan birine koyuyor: *otomatik iyi huylu* (olasılık çok düşük; biyopsiye gerek yok), *belirsiz* (arada; doktor karar veriyor, nodüllerin çoğu burada) ve *otomatik kötü huylu* (olasılık çok yüksek; sistem doktora sormadan "kötü huylu" diyor ve yüksek riskli olarak işaretliyor). Otomatik kötü huylu garantisi: bu kararların en fazla %20'si aslında iyi huylu. Bizim bölünmede sertifikalanan eşik 0,833: 438 test nodülünün %9,8'i (yaklaşık 43) otomatik kötü huylu oldu, bunların %14'ü (yaklaşık 6) aslında iyi huyluydu, %20'nin altında. 2.000 yeniden bölmenin ortalamasında nodüllerin yaklaşık %8'i bu kutuya düşüyor, aralarında iyi huylu oranı %7,4.
+
+**Otomatik iyi huylu neden hâlâ %0?** Orada sorun sıra değil, kuyruğun kendisi (yukarıdaki conformal kontroller). **LLM'in AUC'si daha düşükken neden XGBoost'tan daha sık geçiyor (%99'a %38)?** AUC bütün sıralamayı ölçüyor; bu test sadece en üstteki %5–30'a bakıyor ve orada LLM'in 3 seed ortalaması daha temiz. **Çekince:** tasarım ana sonuçlardan sonra yazıldı; önceden kayıtlı ama aynı veride test edildi. Bu yüzden yeni veride (ör. ThyroidXL) doğrulanana kadar keşifsel (exploratory).
+
+> 🗣 **Anlatım notu:** "Planlanan LTT en sıkı eşikten başlıyordu; orada neredeyse hiç nodül olmadığı için ilk adımda duruyordu. Eşikleri nodül payıyla tanımlayıp sırayı bağımsız validation setine göre belirleyince otomatik kötü huylu taraf 2.000 yeniden bölmenin %99'unda sertifikalandı: sistem hastaların yaklaşık %8–10'una kendi başına 'kötü huylu' diyebiliyor ve bu kararların en fazla %20'si yanlış (pratikte %7–14). Otomatik iyi huylu taraf hâlâ geçmiyor, çünkü orada sorun tasarım değil, en temiz grubun yeterince temiz olmaması."
 
 **Peritümöral radyomik.** Nodülün etrafındaki bir halkada PyRadiomics özellikleri (93 özellik). Kural önceden belliydi: XGBoost'u calibration'da iyileştirirlerse LLM'e geçilecek.
 

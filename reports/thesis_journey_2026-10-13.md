@@ -242,6 +242,30 @@ The stacker's weights: XGBoost 0.99, LLM −0.04. The two models' scores correla
 
 **Conformal checks.**
 
+**How to read the LTT tables.** In the auto-benign group an *error* is a nodule called benign that is in fact a cancer. The guarantee is about the **true rate**: the share of cancers among all future nodules the rule would call benign, which is never known. The calibration group only gives the **observed rate**, a sample of it. LTT asks: *if the true rate were 5%, how likely would it be to see as few cancers as we did?* If that chance is below δ = 5%, the true rate is certified to be below 5%.
+
+**Example 1: no cancers in the group.** With a true rate of 5%, each nodule is benign with probability 0.95.
+
+| group | chance that all are benign if the true rate were 5% | conclusion |
+|---|---|---|
+| 30 nodules, 0 cancers | 0.95³⁰ ≈ 21% | common; proves nothing |
+| 59 nodules, 0 cancers | 0.95⁵⁹ ≈ 4.8% | below 5%: **certified** |
+
+**Example 2: cancers in the group.** Each cancer raises the evidence needed:
+
+| cancers in the group | smallest group that can be certified | observed rate then |
+|---|---|---|
+| 0 | 59 | 0% |
+| 1 | 93 | 1.1% |
+| 2 | 124 | 1.6% |
+| 3 | 153 | 2.0% |
+
+So the observed rate has to be about 0–2%, not just below 5%; the gap is the uncertainty of a small sample. On the auto-malignant side the target is 20%, so 14 clean nodules already suffice, which is why that side can pass.
+
+**The cleanest tail.** Each model gives every one of the 524 calibration nodules a probability of cancer. Sorted from the lowest, the first 10% (52 nodules) are the ones the model is most sure are benign; a threshold there would make them auto-benign. Slices of 10–20% are shown because a 5% slice (26 nodules) cannot be certified even with no cancers (59 needed), and wider slices take in more cancers. The LTT itself does not use these slices; they illustrate why it fails.
+
+**Applied.** XGBoost's cleanest 52 nodules hold 2 cancers: observed rate 3.8%, below 5%. But if the true rate were 5%, 2 or fewer cancers in 52 nodules would happen with probability ≈ 51%, so this is no evidence. Two cancers would need 124 nodules; widening the group to 104 brings in a third cancer, which needs 153. The LLM's tail (4 in 52, ≈ 8%) is above 5% even as observed.
+
 | smallest group LTT can certify (δ = 0.05) | 0 errors | 1 | 2 | 3 |
 |---|---|---|---|---|
 | auto-benign, α = 5% | 59 | 93 | 124 | 153 |
@@ -271,6 +295,19 @@ The stacker's weights: XGBoost 0.99, LLM −0.04. The two models' scores correla
 | LLM run I | 0% | 13% | 22% | 11.5% / 18.4% |
 
 Auto-malignant becomes attainable; auto-benign is never certified, for any model or design.
+
+**Why the planned design failed.** LTT tests candidate thresholds in a fixed order and stops at the first failure; this keeps the guarantee. The planned order began at the safest auto-malignant threshold, u = 0.95, which almost no nodule exceeds. With fewer than 14 nodules nothing can be certified, so the test stopped at the first step and never reached u ≈ 0.80, where it would have passed: a staircase with a missing first step.
+
+**The two changes.**
+
+1. Candidates are defined by the share of nodules (the top 5%, 10%, …, 30% on validation) instead of by probability values, so no candidate is empty (5% of calibration ≈ 26 nodules).
+2. The order is set on the validation split, most promising candidate first, and then tested on calibration.
+
+**Why the guarantee still holds.** Fixed-sequence testing only requires the order to be fixed without calibration data; validation is a separate, independent split. Every detail (candidates, order, α, δ) was committed to Git before the design was run.
+
+**What "auto-malignant" means.** The triage puts each nodule in one of three boxes: *auto-benign* (very low probability; no biopsy), *referred* (in between; a clinician decides, most nodules land here) and *auto-malignant* (very high probability; the system calls it malignant on its own and flags it as high risk). The auto-malignant guarantee: at most 20% of these calls are in fact benign. On our split the certified threshold is 0.833: 9.8% of the 438 test nodules (about 43) become auto-malignant, and 14% of them (about 6) are benign, within the 20%. Over 2,000 re-splits about 8% are decided, with 7.4% benign among them.
+
+**Why auto-benign stays at 0%.** There the problem is not the order but the tail itself (see the conformal checks above). **Why the LLM passes more often than XGBoost (99% vs 38%) despite a lower AUC:** AUC scores the whole ranking; this test looks only at the top 5–30%, where the 3-seed LLM average is cleaner. **Caveat:** the design was written after the main results; it is pre-registered but tested on the same data, so it is exploratory until confirmed on new data (e.g. ThyroidXL).
 
 **Peritumoral radiomics.** PyRadiomics features in a ring around the nodule (93 features), with a rule fixed in advance: pass them to the LLM only if they improve XGBoost on calibration.
 
