@@ -123,7 +123,7 @@ Bu split'te daha fazla özellik test'te de kazandırmaya başladı (XGBoost, 67 
 
 ## 4. Yeni özellikler ve pooled split'teki ilk LLM run'ları (8–9 Ekim)
 
-**v2 çıkarımı.** 64 gri seviye, görüntüye göre normalize edilmiş boyut, yedi özellik ailesi (102 özellik), maskenin sadece en büyük parçası. Tek parçalı maskelerde v1'i birebir tekrar üretiyor.
+**v2 çıkarımı.** 64 gri seviye, görüntüye göre normalize edilmiş boyut, PyRadiomics'in yedi özellik ailesi (102 özellik: şekil 9, first-order 18, GLCM 24, GLRLM 16, GLSZM 16, GLDM 14, NGTDM 5. Şekil geometriyi, first-order parlaklık dağılımını, beş doku ailesi de gri tonların diziliş biçimini ölçüyor: komşu piksel çiftleri, düz çizgideki tekrarlar, bitişik bölgeler, komşu benzerliği, komşu ortalamasından fark), maskenin sadece en büyük parçası. Tek parçalı maskelerde v1'i birebir tekrar üretiyor.
 
 **Yol üstünde bulunan iki düzeltme.**
 - mRMR neredeyse aynı özellikleri seçiyordu (2D'de piksel yüzeyi ile mesh yüzeyi aynı sayı). mRMR'den önce bir kopya filtresi eklendi (|r| > 0,95, sadece train).

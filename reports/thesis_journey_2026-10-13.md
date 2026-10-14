@@ -92,7 +92,7 @@ This introduced the distinction that runs through the rest of the work: a guaran
 
 ## 4. Revised features and the first pooled-split LLM runs (8–9 October)
 
-**v2 extraction.** 64 grey levels, size features relative to the image, seven feature families (102 features), largest mask component only. On single-component masks it reproduces v1 exactly.
+**v2 extraction.** 64 grey levels, size features relative to the image, the seven PyRadiomics feature families (102 features: shape 9, first-order 18, GLCM 24, GLRLM 16, GLSZM 16, GLDM 14, NGTDM 5; shape measures geometry, first-order the brightness histogram, the five texture families how grey levels are arranged: neighbouring pairs, runs along a line, connected zones, neighbour similarity, difference from the neighbourhood mean), largest mask component only. On single-component masks it reproduces v1 exactly.
 
 **Two fixes found along the way.**
 - mRMR kept selecting near-identical features (pixel surface and mesh surface are the same number in 2D), so a near-duplicate filter (|r| > 0.95, train only) was added before mRMR.

@@ -91,7 +91,7 @@
 |---|---|---|
 | doku için gri seviye | binWidth 25 (~9 seviye) | **binCount 64** (her görüntüde sabit 64 seviye) |
 | boyut özellikleri | piksel | **görüntüye göre:** uzunluklar / √(W·H), alanlar / (W·H), çevre/alan oranı × √(W·H) |
-| aileler | 4 | **7:** + GLRLM, GLDM, NGTDM |
+| aileler (PyRadiomics) | 4 | **7:** + GLRLM, GLDM, NGTDM — şekil 9, first-order 18, GLCM 24, GLRLM 16, GLSZM 16, GLDM 14, NGTDM 5 |
 | çok parçalı maske | olduğu gibi | **sadece en büyük parça** (önceden sabitlenmiş kural) |
 | kenara değen maske | olduğu gibi | tutuluyor, `touches_border` olarak işaretleniyor |
 | en küçük maske | – | 20 piksel |

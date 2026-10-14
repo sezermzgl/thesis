@@ -207,7 +207,7 @@ LTT ile aynı test, ama payda bütün calibration kanserleri. "Kanserlerin en fa
 - **Kayıt altına alınan sınırlama:** split görüntü düzeyinde, hasta düzeyinde değil. TN3K'da hastadan 1.072 fazla görüntü var. En kötü senaryoda test görüntülerinin yaklaşık %39'unun train'de aynı hastadan bir görüntüsü olabilir. Gerçek oran bilinmiyor.
 
 ### C4. Yeni özellikler ve ilk LLM run'ları (8–9 Ekim)
-- **v2 özellikleri:** 64 gri seviye, görüntüye göre normalize edilmiş boyut, 7 özellik ailesi (102 özellik), maskenin sadece en büyük parçası. Tek parçalı maskelerde v1 ile birebir aynı değerleri veriyor.
+- **v2 özellikleri:** 64 gri seviye, görüntüye göre normalize edilmiş boyut, PyRadiomics'in yedi özellik ailesi (102 özellik: şekil 9, first-order 18, GLCM 24, GLRLM 16, GLSZM 16, GLDM 14, NGTDM 5. Şekil geometriyi, first-order parlaklık dağılımını, beş doku ailesi de gri tonların diziliş biçimini ölçüyor: komşu piksel çiftleri, düz çizgideki tekrarlar, bitişik bölgeler, komşu benzerliği, komşu ortalamasından fark), maskenin sadece en büyük parçası. Tek parçalı maskelerde v1 ile birebir aynı değerleri veriyor.
 - **Yol üstünde bulunan iki hata:**
   - mRMR, neredeyse aynı iki özelliği birlikte seçiyordu (2D'de piksel yüzeyi ve mesh yüzeyi aynı sayı). Kopya filtresi eklendi.
   - Tahminler bf16 hassasiyetinde hesaplanıyordu ve olasılıklar yuvarlanıyordu: 524 nodülde sadece 195 farklı değer. Tam hassasiyete geçildi.

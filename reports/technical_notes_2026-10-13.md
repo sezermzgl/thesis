@@ -58,7 +58,7 @@ Side findings: those masks are less often malignant (22% vs 36%); image width al
 |---|---|---|
 | grey levels | bin width 25 | **bin count 64** |
 | size features | pixels | lengths / √(WH), areas / (WH), perimeter-to-surface ratio × √(WH) |
-| families | 4 | 7 (+ GLRLM, GLDM, NGTDM) |
+| families (PyRadiomics) | 4 | 7 (+ GLRLM, GLDM, NGTDM): shape 9, first-order 18, GLCM 24, GLRLM 16, GLSZM 16, GLDM 14, NGTDM 5 |
 | multi-component masks | as they are | largest component only |
 | border-touching masks | as they are | kept and flagged |
 | minimum mask | – | 20 pixels |
