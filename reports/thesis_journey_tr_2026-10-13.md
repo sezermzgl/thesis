@@ -367,6 +367,17 @@ Otomatik kötü huylu ulaşılabilir hâle geliyor. Otomatik iyi huylu ise hiçb
 1. Adaylar olasılık değeriyle değil, nodül payıyla tanımlandı (validation'da en yüksek %5, %10, …, %30). Böylece hiçbir aday boş kalmıyor (calibration'ın %5'i ≈ 26 nodül).
 2. Sıra validation setinde belirlendi, en umut verici aday önce; sonra calibration'da bu sırayla test edildi.
 
+**Sayısal örnek (LLM, 3 seed ortalaması, otomatik kötü huylu taraf).** Validation'da her adaya bir p-değeri veriliyor: *gerçek hata oranı %20 olsaydı, bu kadar az iyi huylu görme ihtimalim ne?* Küçük p = daha umut verici. Validation'da hiçbir aday geçmiyor; validation sadece sırayı belirliyor. Calibration bu sırayla test ediyor ve ilk başarısızlıkta duruyor.
+
+| aday (eşik) | validation: nodül / iyi huylu / p | sıra | calibration: nodül / iyi huylu / p | sonuç |
+|---|---|---|---|---|
+| en yüksek %5 (0,891) | 22 / 5 / 0,73 | 1 | 34 / 2 / 0,023 | geçti |
+| en yüksek %10 (0,833) | 44 / 12 / 0,91 | 2 | 50 / 4 / 0,019 | geçti |
+| en yüksek %20 (0,710) | 88 / 28 / 0,997 | 3 | 105 / 24 / 0,81 | kaldı: dur |
+| en yüksek %15, %25, %30 | p 0,999–1,00 | 4–6 | – | sıra gelmedi |
+
+Geçenlerin en cömerti kullanılıyor: eşik 0,833, yani en yüksek %10.
+
 **Garanti neden bozulmuyor?** Sabit sıralı testin tek şartı, sıranın calibration verisi kullanılmadan belirlenmesi. Validation ayrı ve bağımsız bir küme. Tasarımın bütün detayları (adaylar, sıra, α, δ) çalıştırılmadan önce Git'e commit edildi, yani sonuca bakıp ayar oynanmadı.
 
 **"Otomatik kötü huylu" ne demek?** Triage her nodülü üç kutudan birine koyuyor: *otomatik iyi huylu* (olasılık çok düşük; biyopsiye gerek yok), *belirsiz* (arada; doktor karar veriyor, nodüllerin çoğu burada) ve *otomatik kötü huylu* (olasılık çok yüksek; sistem doktora sormadan "kötü huylu" diyor ve yüksek riskli olarak işaretliyor). Otomatik kötü huylu garantisi: bu kararların en fazla %20'si aslında iyi huylu. Bizim bölünmede sertifikalanan eşik 0,833: 438 test nodülünün %9,8'i (yaklaşık 43) otomatik kötü huylu oldu, bunların %14'ü (yaklaşık 6) aslında iyi huyluydu, %20'nin altında. 2.000 yeniden bölmenin ortalamasında nodüllerin yaklaşık %8'i bu kutuya düşüyor, aralarında iyi huylu oranı %7,4.

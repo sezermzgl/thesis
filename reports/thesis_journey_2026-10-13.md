@@ -303,6 +303,17 @@ Auto-malignant becomes attainable; auto-benign is never certified, for any model
 1. Candidates are defined by the share of nodules (the top 5%, 10%, …, 30% on validation) instead of by probability values, so no candidate is empty (5% of calibration ≈ 26 nodules).
 2. The order is set on the validation split, most promising candidate first, and then tested on calibration.
 
+**Worked example (LLM, 3-seed average, auto-malignant side).** On validation each candidate gets a p-value: *if the true error rate were 20%, how likely is it to see this few benign nodules?* Smaller means more promising. None passes on validation; it only sets the order. Calibration then tests in that order and stops at the first failure.
+
+| candidate (threshold) | validation: nodules / benign / p | order | calibration: nodules / benign / p | result |
+|---|---|---|---|---|
+| top 5% (0.891) | 22 / 5 / 0.73 | 1 | 34 / 2 / 0.023 | passes |
+| top 10% (0.833) | 44 / 12 / 0.91 | 2 | 50 / 4 / 0.019 | passes |
+| top 20% (0.710) | 88 / 28 / 0.997 | 3 | 105 / 24 / 0.81 | fails: stop |
+| top 15%, 25%, 30% | p 0.999–1.00 | 4–6 | – | not reached |
+
+The most permissive certified candidate is used: threshold 0.833, the top 10%.
+
 **Why the guarantee still holds.** Fixed-sequence testing only requires the order to be fixed without calibration data; validation is a separate, independent split. Every detail (candidates, order, α, δ) was committed to Git before the design was run.
 
 **What "auto-malignant" means.** The triage puts each nodule in one of three boxes: *auto-benign* (very low probability; no biopsy), *referred* (in between; a clinician decides, most nodules land here) and *auto-malignant* (very high probability; the system calls it malignant on its own and flags it as high risk). The auto-malignant guarantee: at most 20% of these calls are in fact benign. On our split the certified threshold is 0.833: 9.8% of the 438 test nodules (about 43) become auto-malignant, and 14% of them (about 6) are benign, within the 20%. Over 2,000 re-splits about 8% are decided, with 7.4% benign among them.
