@@ -50,17 +50,27 @@
 
 ## 2. Error analysis and a weaker guarantee (7 October)
 
-Without new training, the run-2 outputs were re-analysed:
+**The question.** Why did LTT certify nothing? The run-2 outputs were looked at again, without any new training.
 
-- the errors that block LTT come from the base prompt itself; the perturbations neither create nor reveal them;
-- **a different guarantee was tried: the miss rate**, the share of *all* cancers sent to auto-benign (≤ 5%), tested with the same binomial LTT test. It can be certified, but only for about 5% of the nodules, and at 10% it was violated on the official test (15% of cancers missed), a concrete effect of the non-exchangeable split.
+**Finding 1: the votes do not find the errors.** The cancers the model calls benign are already called benign by the plain prompt, and the perturbed prompts give the same answer. The model is confidently wrong, so counting votes cannot flag these nodules.
 
-| miss-rate rule, softmax (official split) | threshold | auto-benign on test | cancers missed on test |
+**Finding 2: there is an easier guarantee.** Both guarantees are about the same mistake: a cancer called benign (a false negative, FN). They divide it by different things.
+
+| guarantee | the question it answers | formula |
+|---|---|---|
+| R1 (planned) | "If I call a nodule benign, how likely is it to be a cancer?" (each patient) | FN / all nodules called benign |
+| miss rate (new) | "What share of all cancers do I miss?" (the whole programme) | FN / all cancers |
+
+*Example:* 1,000 nodules, 350 of them cancers. 200 are called benign, and 20 of those are cancers. Miss rate = 20 / 350 = 5.7%; R1 = 20 / 200 = 10%. The same 20 mistakes, but R1 is twice as large, because the benign group is much smaller than the set of all cancers. With 35% cancers in the data, holding R1 at 5% is much harder.
+
+**Result with the miss rate** (same LTT test, official split):
+
+| target | nodules sent to auto-benign (test) | cancers missed (test) | verdict |
 |---|---|---|---|
-| ≤ 5% of cancers | P ≤ 0.22 | 7.2% | 5.1% |
-| ≤ 10% of cancers | P ≤ 0.28 | 24.4% | 15.3% (violated under the shift) |
+| miss ≤ 5% of cancers | 7.2% | 5.1% | about on target, but few nodules decided |
+| miss ≤ 10% of cancers | 24.4% | 15.3% | **broken**: calibration and test were not alike |
 
-This introduced the distinction that runs through the rest of the work: a guarantee on **missed cancers** (programme level) versus a guarantee on **each benign call** (patient level, R1).
+**Takeaway.** The miss rate can be certified; R1 could not. They are different promises, and this distinction runs through the rest of the work. The broken 10% row was also the first concrete sign that the official split was not exchangeable.
 
 ## 3. Backbone, benchmark, split and data audit (8 October)
 

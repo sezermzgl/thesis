@@ -68,20 +68,27 @@ Oylar belirsizliği değil, eğitim formatından ne kadar uzaklaşıldığını 
 
 ## 2. Hata analizi ve daha gevşek bir garanti (7 Ekim)
 
-Yeni eğitim yapmadan run 2'nin çıktılarını yeniden inceledik:
-- LTT'yi engelleyen hatalar zaten pertürbasyonsuz prompt'ta vardı. Pertürbasyonlar onları ne yarattı ne gösterdi.
-- **Farklı bir garanti denedik: kaçırma oranı.** Bütün kanserlerin otomatik iyi huylu grubuna düşen payı ≤ %5. Aynı binom LTT testiyle test ettik.
+**Soru.** LTT neden hiçbir şeyi sertifikalamadı? Yeni eğitim yapmadan run 2'nin çıktılarına tekrar baktık.
 
-| kaçırma oranı kuralı, softmax (resmi split) | eşik | test'te otomatik iyi huylu | test'te kaçırılan kanser |
+**Bulgu 1: oylar hataları bulmuyor.** Modelin iyi huylu dediği kanserlere, pertürbasyonsuz düz prompt da zaten iyi huylu diyor; pertürbasyonlu prompt'lar da aynı cevabı veriyor. Model emin bir şekilde yanılıyor, bu yüzden oy saymak bu nodülleri yakalayamıyor.
+
+**Bulgu 2: daha kolay bir garanti var.** İki garanti de aynı hatayla ilgili: kanser olduğu hâlde "iyi huylu" denen nodül (false negative, FN). Fark, bu hatanın neye bölündüğünde.
+
+| garanti | cevapladığı soru | formül |
+|---|---|---|
+| R1 (planlanan) | "İyi huylu dediğim bir nodül yüzde kaç ihtimalle kanser?" (her hasta için) | FN / iyi huylu denen bütün nodüller |
+| kaçırma oranı (yeni) | "Bütün kanserlerin yüzde kaçını kaçırıyorum?" (bütün program için) | FN / bütün kanserler |
+
+*Örnek:* 1.000 nodül, 350'si kanser. 200'üne iyi huylu deniyor, bunların 20'si kanser. Kaçırma oranı = 20 / 350 = %5,7; R1 = 20 / 200 = %10. Aynı 20 hata, ama R1 iki kat büyük, çünkü iyi huylu grup bütün kanserlerden çok daha küçük. Verinin %35'i kanserken R1'i %5'te tutmak çok daha zor.
+
+**Kaçırma oranıyla sonuç** (aynı LTT testi, resmi split):
+
+| hedef | otomatik iyi huyluya giden nodül (test) | kaçırılan kanser (test) | yorum |
 |---|---|---|---|
-| kanserlerin ≤ %5'i | P ≤ 0,22 | %7,2 | %5,1 |
-| kanserlerin ≤ %10'u | P ≤ 0,28 | %24,4 | %15,3 (kayma yüzünden ihlal edildi) |
+| kanserlerin ≤ %5'i | %7,2 | %5,1 | hedefe yakın, ama çok az nodüle karar verildi |
+| kanserlerin ≤ %10'u | %24,4 | %15,3 | **bozuldu**: calibration ve test birbirine benzemiyordu |
 
-Bu analiz, çalışmanın geri kalanında süren bir ayrımı getirdi. İkisi de **aynı hatayla** ilgili: kanser olduğu hâlde "iyi huylu" denen nodül (false negative, FN). Fark, FN'nin **neye bölündüğünde**:
-- **Kaçırma oranı** = FN / bütün kanserler. Program düzeyinde bir soru: "kanserlerin yüzde kaçını kaçırıyorum?" İstatistikte false negative rate, yani 1 − duyarlılık.
-- **R1** = FN / "iyi huylu" denen bütün nodüller. Hasta düzeyinde bir soru: "iyi huylu dediğim bir hasta aslında yüzde kaç ihtimalle kanser?" İstatistikte false omission rate, yani 1 − NPV.
-
-Örnek: 1.000 nodül, 350 kanser, 200'üne "iyi huylu" deniyor, bunların 20'si kanser. Kaçırma oranı 20/350 = %5,7, R1 = 20/200 = %10. Kanser oranı yüksekken R1'i %5'te tutmak çok daha zor. False positive (iyi huyluya "kötü huylu" demek) ise R2'nin konusu.
+**Sonuç.** Kaçırma oranı sertifikalanabiliyor, R1 sertifikalanamadı. İkisi farklı vaatler ve bu ayrım çalışmanın geri kalanında hep karşımıza çıkıyor. %10 satırının bozulması, resmi split'in exchangeable olmadığının da ilk somut işaretiydi.
 
 > 🗣 **Anlatım notu:** "Burada iki farklı garanti türü olduğunu fark ettim. Kaçırma oranı program düzeyinde: 'kanserlerin %95'ini yakalarım'. R1 hasta düzeyinde: 'iyi huylu dediğimin %95'i gerçekten iyi huylu'. İkincisi çok daha zor."
 
