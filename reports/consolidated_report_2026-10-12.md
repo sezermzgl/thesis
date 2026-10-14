@@ -54,6 +54,33 @@ The model is not generative: it does not answer in words; a new linear layer map
 
 The echogenicity ratio correlates −0.78 with the anechoic fraction: it mostly measures fluid, not tissue echogenicity. A seventh feature computed on the solid part only (run J) removed the reversed direction but added no signal and was slightly worse, so it is left out.
 
+**Background: what ACR TI-RADS is** (Tessler et al., 2017). Radiologists score a thyroid nodule on five ultrasound categories, add the points, and the total gives a risk level (TR1 benign … TR5 highly suspicious) that decides whether a biopsy (FNA) is recommended, depending on the nodule's size.
+
+| TI-RADS category | what the radiologist looks at | options and points | our feature |
+|---|---|---|---|
+| composition | cystic or solid | cystic or spongiform 0 · mixed cystic-solid 1 · solid 2 | anechoic fraction |
+| echogenicity | darker or brighter than the surrounding thyroid | anechoic 0 · hyper- or isoechoic 1 · hypoechoic 2 · very hypoechoic 3 | echogenicity ratio |
+| shape | taller than wide on a transverse view | wider-than-tall 0 · taller-than-wide 3 | taller-than-wide ratio |
+| margin | smooth, lobulated or irregular | smooth 0 · ill-defined 0 · lobulated or irregular 2 · extrathyroidal extension 3 | solidity, margin sharpness |
+| echogenic foci | bright spots, e.g. microcalcifications | none or large comet-tail 0 · macrocalcifications 1 · peripheral (rim) 2 · punctate 3 (types add up) | punctate foci density |
+
+Total points → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). FNA is recommended for TR3 from 2.5 cm, TR4 from 1.5 cm and TR5 from 1 cm. Our features are automatic, continuous approximations of these signs; they do not reproduce the radiologist's points.
+
+**Note on margin sharpness.** ACR TI-RADS gives an ill-defined margin 0 points; the margin points come from a lobulated or irregular outline, which solidity measures. Margin sharpness is therefore an extra measurement inspired by the margin category, not a direct copy of a scored sign.
+
+**Feature engineering: what TI-RADS adds to PyRadiomics.** PyRadiomics already measures shape, brightness and texture, but by design it (a) is rotation-invariant, so it ignores how the nodule is oriented, and (b) uses only the pixels inside the mask, so it never compares the nodule with the tissue around it. Two TI-RADS signs rest exactly on these.
+
+| type | what TI-RADS looks at | our feature | why PyRadiomics misses it |
+|---|---|---|---|
+| new view | orientation | taller-than-wide ratio = vertical / horizontal extent of the mask | MajorAxisLength, Elongation use the nodule's own axes: a lying and a standing ellipse get the same values |
+| new view | contrast with the surroundings | echogenicity ratio = mean inside / mean of a ring of surrounding tissue | first-order sees only absolute brightness inside the mask, which depends on scanner gain |
+| new view | boundary (inside vs outside) | margin sharpness = gradient across the boundary / spread of the surroundings | needs pixels on both sides of the boundary; PyRadiomics sees only the inside |
+| partial overlap | outline irregularity | solidity = area / convex-hull area | related to Sphericity, PerimeterSurfaceRatio; solidity targets lobulation directly |
+| partial overlap | fluid content | anechoic fraction = share of pixels much darker than the ring | related to first-order percentiles, but relative to the surroundings |
+| partial overlap | punctate bright spots | punctate foci density = small, separate bright spots per 1,000 pixels | first-order max / 90th percentile see bright pixels, not whether they form small separate spots |
+
+So the engineering contribution is two views PyRadiomics structurally lacks (orientation and context), plus three clinically defined summaries of information PyRadiomics only spreads over many features. Evidence that this is new information: with matched seeds, adding these features raised the LLM's AUC by +0.059 on average (minimum +0.050).
+
 ## 5. Classification results
 
 All numbers are AUC on validation / calibration / test. Intervals are 95% paired bootstrap intervals of the AUC difference (2,000 resamples of the same nodules). Full table of runs in the appendix.

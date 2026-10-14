@@ -184,15 +184,17 @@ Bu split'te daha fazla özellik test'te de kazandırmaya başladı (XGBoost, 67 
 
 **Arka plan: ACR TI-RADS nedir?** (Tessler et al., 2017). Radyologlar bir tiroid nodülünü ultrasonda beş kategoride puanlıyor ve puanları topluyor. Toplam puan bir risk seviyesi veriyor: TR1 iyi huylu … TR5 çok şüpheli. Bu seviye, nodülün boyutuyla birlikte biyopsi (FNA) önerilip önerilmeyeceğini belirliyor.
 
-| TI-RADS kategorisi | radyolog neye bakıyor | puan | bizim özelliğimiz |
+| TI-RADS kategorisi | radyolog neye bakıyor | seçenekler ve puanlar | bizim özelliğimiz |
 |---|---|---|---|
-| yapı (composition) | kistik mi, katı mı | 0–2 (katı = 2) | sıvı oranı |
-| ekojenite | çevredeki tiroid dokusundan koyu mu, parlak mı | 0–3 (çok hipoekoik = 3) | ekojenite oranı |
-| şekil | enine kesitte boyu eninden uzun mu | 0 ya da 3 | taller-than-wide oranı |
-| kenar (margin) | düzgün, loblu ya da düzensiz | 0–3 | solidity, kenar keskinliği |
-| ekojenik odaklar | parlak noktalar, örneğin mikrokalsifikasyon | 0–3 (noktasal = 3) | parlak nokta yoğunluğu |
+| yapı (composition) | kistik mi, katı mı | kistik ya da süngerimsi 0 · karışık kistik-katı 1 · katı 2 | sıvı oranı |
+| ekojenite | çevredeki tiroid dokusundan koyu mu, parlak mı | anekoik 0 · hiper ya da izoekoik 1 · hipoekoik 2 · çok hipoekoik 3 | ekojenite oranı |
+| şekil | enine kesitte boyu eninden uzun mu | eni boyundan geniş 0 · boyu eninden uzun 3 | taller-than-wide oranı |
+| kenar (margin) | düzgün, loblu ya da düzensiz | düzgün 0 · belirsiz 0 · loblu ya da düzensiz 2 · tiroid dışına taşma 3 | solidity, kenar keskinliği |
+| ekojenik odaklar | parlak noktalar, örneğin mikrokalsifikasyon | yok ya da büyük kuyruklu yıldız 0 · makrokalsifikasyon 1 · çevresel (rim) 2 · noktasal 3 (türler toplanır) | parlak nokta yoğunluğu |
 
-Toplam puan → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Bizim özelliklerimiz bu işaretlerin otomatik, sürekli (continuous) yaklaşımları. Radyoloğun puanını birebir üretmiyorlar.
+Toplam puan → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Biyopsi (FNA) önerisi: TR3'te 2,5 cm'den, TR4'te 1,5 cm'den, TR5'te 1 cm'den itibaren. Bizim özelliklerimiz bu işaretlerin otomatik, sürekli (continuous) yaklaşımları. Radyoloğun puanını birebir üretmiyorlar.
+
+**Kenar keskinliği hakkında not.** ACR TI-RADS'ta belirsiz (ill-defined) kenar 0 puan alıyor. Kenar puanı loblu ya da düzensiz dış hattan geliyor, onu da Solidity ölçüyor. Yani kenar keskinliği, ACR'nin puanladığı bir işaretin birebir karşılığı değil, kenar kategorisinden esinlenmiş ek bir ölçüm.
 
 > 🗣 Kısaca: "TI-RADS, radyologların beş işarete puan verdiği bir sistem: yapı, ekojenite, şekil, kenar ve parlak noktalar. Ben bu beş işareti görüntüden otomatik ölçen altı özellik yazdım. PyRadiomics bunların özellikle şekil yönelimini ve çevreyle kontrastı ölçmüyordu."
 

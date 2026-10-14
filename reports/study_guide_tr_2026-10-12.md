@@ -197,6 +197,33 @@ LTT ile aynı test, ama payda bütün calibration kanserleri (182). "Kaçırma o
 ### 3.5 TI-RADS'tan esinlenen özellikler (en önemli olumlu bulgu)
 **Fikir:** radyologlar TI-RADS'ta şeye bakıyor: nodülün dik mi yatık mı olduğu (taller-than-wide), çevresine göre ne kadar karanlık olduğu (ekojenite), kenarının düzgünlüğü, sıvı içeriği, parlak noktalar. PyRadiomics bunların bir kısmını hiç ölçmüyor, çünkü nodülü tek başına inceliyor, çevresine ya da yönüne bakmıyor. Biz bu işaretleri görüntüden hesaplayan 6 özellik yazdık.
 
+**Arka plan: ACR TI-RADS nedir?** (Tessler et al., 2017). Radyologlar bir tiroid nodülünü ultrasonda beş kategoride puanlıyor ve puanları topluyor. Toplam puan bir risk seviyesi veriyor: TR1 iyi huylu … TR5 çok şüpheli. Bu seviye, nodülün boyutuyla birlikte biyopsi (FNA) önerilip önerilmeyeceğini belirliyor.
+
+| TI-RADS kategorisi | radyolog neye bakıyor | seçenekler ve puanlar | bizim özelliğimiz |
+|---|---|---|---|
+| yapı (composition) | kistik mi, katı mı | kistik ya da süngerimsi 0 · karışık kistik-katı 1 · katı 2 | sıvı oranı |
+| ekojenite | çevredeki tiroid dokusundan koyu mu, parlak mı | anekoik 0 · hiper ya da izoekoik 1 · hipoekoik 2 · çok hipoekoik 3 | ekojenite oranı |
+| şekil | enine kesitte boyu eninden uzun mu | eni boyundan geniş 0 · boyu eninden uzun 3 | taller-than-wide oranı |
+| kenar (margin) | düzgün, loblu ya da düzensiz | düzgün 0 · belirsiz 0 · loblu ya da düzensiz 2 · tiroid dışına taşma 3 | solidity, kenar keskinliği |
+| ekojenik odaklar | parlak noktalar, örneğin mikrokalsifikasyon | yok ya da büyük kuyruklu yıldız 0 · makrokalsifikasyon 1 · çevresel (rim) 2 · noktasal 3 (türler toplanır) | parlak nokta yoğunluğu |
+
+Toplam puan → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Biyopsi (FNA) önerisi: TR3'te 2,5 cm'den, TR4'te 1,5 cm'den, TR5'te 1 cm'den itibaren. Bizim özelliklerimiz bu işaretlerin otomatik, sürekli (continuous) yaklaşımları. Radyoloğun puanını birebir üretmiyorlar.
+
+**Kenar keskinliği hakkında not.** ACR TI-RADS'ta belirsiz (ill-defined) kenar 0 puan alıyor. Kenar puanı loblu ya da düzensiz dış hattan geliyor, onu da Solidity ölçüyor. Yani kenar keskinliği, ACR'nin puanladığı bir işaretin birebir karşılığı değil, kenar kategorisinden esinlenmiş ek bir ölçüm.
+
+**Feature engineering: TI-RADS, PyRadiomics'e ne kattı?** PyRadiomics zaten şekli, parlaklığı ve dokuyu ölçüyor. Ama tasarımı gereği (a) dönmeden bağımsız (rotation-invariant), yani nodülün nasıl durduğuna bakmıyor; (b) sadece maskenin içindeki piksellere bakıyor, yani nodülü çevresindeki dokuyla hiç karşılaştırmıyor. TI-RADS'ın iki işareti tam olarak bunlara dayanıyor.
+
+| tür | TI-RADS neye bakıyor | bizim özelliğimiz | PyRadiomics neden kaçırıyor |
+|---|---|---|---|
+| yeni bakış | yön | taller-than-wide oranı = maskenin dikey / yatay uzunluğu | MajorAxisLength, Elongation nodülün kendi eksenlerine göre: yatan ve dik duran elips aynı değeri alır |
+| yeni bakış | çevreyle kontrast | ekojenite oranı = içerinin ortalaması / çevredeki halkanın ortalaması | first-order sadece maskenin içindeki mutlak parlaklığı görür, bu da cihazın gain ayarına bağlı |
+| yeni bakış | sınır (içerisi ve dışarısı) | kenar keskinliği = sınır boyunca parlaklık değişimi / çevrenin dağınıklığı | sınırın iki tarafındaki pikseller gerekir; PyRadiomics sadece içeriyi görür |
+| kısmi örtüşme | kenar düzensizliği | solidity = alan / dışbükey zarf alanı | Sphericity, PerimeterSurfaceRatio ile akraba; solidity loblanmayı doğrudan ölçer |
+| kısmi örtüşme | sıvı içeriği | sıvı oranı = halkadan çok koyu piksellerin payı | first-order yüzdelikleriyle akraba, ama çevreye göreli |
+| kısmi örtüşme | noktasal parlak odaklar | parlak nokta yoğunluğu = 1.000 pikselde küçük, ayrı parlak nokta sayısı | first-order max / 90. yüzdelik parlak pikseli görür, küçük ayrı noktalar halinde olup olmadığını görmez |
+
+Yani mühendislik katkısı: PyRadiomics'te yapısal olarak olmayan iki bakış (yön ve çevre), artı PyRadiomics'in birçok özelliğe dağıttığı bilgiyi klinik tanımlı tek bir sayıda toplayan üç özellik. Bunun gerçekten yeni bilgi olduğunun kanıtı: aynı seed'lerle bu özellikleri eklemek LLM'in AUC'sini ortalama +0,059 artırdı (en az +0,050).
+
 **Sonuç (3 eşleştirilmiş seed):**
 | | test AUC |
 |---|---|

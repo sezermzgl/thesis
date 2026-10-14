@@ -143,15 +143,17 @@ This introduced the distinction that runs through the rest of the work: a guaran
 
 **Background: what ACR TI-RADS is** (Tessler et al., 2017). Radiologists score a thyroid nodule on five ultrasound categories, add the points, and the total gives a risk level (TR1 benign … TR5 highly suspicious) that decides whether a biopsy (FNA) is recommended, depending on the nodule's size.
 
-| TI-RADS category | what the radiologist looks at | points | our feature |
+| TI-RADS category | what the radiologist looks at | options and points | our feature |
 |---|---|---|---|
-| composition | cystic or solid | 0–2 (solid = 2) | anechoic fraction |
-| echogenicity | darker or brighter than the surrounding thyroid | 0–3 (very hypoechoic = 3) | echogenicity ratio |
-| shape | taller than wide on a transverse view | 0 or 3 | taller-than-wide ratio |
-| margin | smooth, lobulated or irregular | 0–3 | solidity, margin sharpness |
-| echogenic foci | bright spots, e.g. microcalcifications | 0–3 (punctate = 3) | punctate foci density |
+| composition | cystic or solid | cystic or spongiform 0 · mixed cystic-solid 1 · solid 2 | anechoic fraction |
+| echogenicity | darker or brighter than the surrounding thyroid | anechoic 0 · hyper- or isoechoic 1 · hypoechoic 2 · very hypoechoic 3 | echogenicity ratio |
+| shape | taller than wide on a transverse view | wider-than-tall 0 · taller-than-wide 3 | taller-than-wide ratio |
+| margin | smooth, lobulated or irregular | smooth 0 · ill-defined 0 · lobulated or irregular 2 · extrathyroidal extension 3 | solidity, margin sharpness |
+| echogenic foci | bright spots, e.g. microcalcifications | none or large comet-tail 0 · macrocalcifications 1 · peripheral (rim) 2 · punctate 3 (types add up) | punctate foci density |
 
-Total points → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Our features are automatic, continuous approximations of these signs; they do not reproduce the radiologist's points.
+Total points → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). FNA is recommended for TR3 from 2.5 cm, TR4 from 1.5 cm and TR5 from 1 cm. Our features are automatic, continuous approximations of these signs; they do not reproduce the radiologist's points.
+
+**Note on margin sharpness.** ACR TI-RADS gives an ill-defined margin 0 points; the margin points come from a lobulated or irregular outline, which solidity measures. Margin sharpness is therefore an extra measurement inspired by the margin category, not a direct copy of a scored sign.
 
 **Feature engineering: what TI-RADS adds to PyRadiomics.** PyRadiomics already measures shape, brightness and texture, but by design it (a) is rotation-invariant, so it ignores how the nodule is oriented, and (b) uses only the pixels inside the mask, so it never compares the nodule with the tissue around it. Two TI-RADS signs rest exactly on these.
 

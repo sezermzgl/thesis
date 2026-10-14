@@ -114,6 +114,33 @@ Bright spots: inside the nodule eroded by 2 pixels; white top-hat with a radius-
 
 **Peritumoral ring** (`peritumoral.py`): width max(5, round(0.5 r)) via a Euclidean distance transform; nodule and outside-sector pixels excluded; PyRadiomics with v2 settings, families first-order, GLCM, GLSZM, GLRLM, GLDM, NGTDM (93 features, 49 after the filter); computed on a crop around the ring (identical to the full image).
 
+**Background: what ACR TI-RADS is** (Tessler et al., 2017). Radiologists score a thyroid nodule on five ultrasound categories, add the points, and the total gives a risk level (TR1 benign … TR5 highly suspicious) that decides whether a biopsy (FNA) is recommended, depending on the nodule's size.
+
+| TI-RADS category | what the radiologist looks at | options and points | our feature |
+|---|---|---|---|
+| composition | cystic or solid | cystic or spongiform 0 · mixed cystic-solid 1 · solid 2 | anechoic fraction |
+| echogenicity | darker or brighter than the surrounding thyroid | anechoic 0 · hyper- or isoechoic 1 · hypoechoic 2 · very hypoechoic 3 | echogenicity ratio |
+| shape | taller than wide on a transverse view | wider-than-tall 0 · taller-than-wide 3 | taller-than-wide ratio |
+| margin | smooth, lobulated or irregular | smooth 0 · ill-defined 0 · lobulated or irregular 2 · extrathyroidal extension 3 | solidity, margin sharpness |
+| echogenic foci | bright spots, e.g. microcalcifications | none or large comet-tail 0 · macrocalcifications 1 · peripheral (rim) 2 · punctate 3 (types add up) | punctate foci density |
+
+Total points → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). FNA is recommended for TR3 from 2.5 cm, TR4 from 1.5 cm and TR5 from 1 cm. Our features are automatic, continuous approximations of these signs; they do not reproduce the radiologist's points.
+
+**Note on margin sharpness.** ACR TI-RADS gives an ill-defined margin 0 points; the margin points come from a lobulated or irregular outline, which solidity measures. Margin sharpness is therefore an extra measurement inspired by the margin category, not a direct copy of a scored sign.
+
+**Feature engineering: what TI-RADS adds to PyRadiomics.** PyRadiomics already measures shape, brightness and texture, but by design it (a) is rotation-invariant, so it ignores how the nodule is oriented, and (b) uses only the pixels inside the mask, so it never compares the nodule with the tissue around it. Two TI-RADS signs rest exactly on these.
+
+| type | what TI-RADS looks at | our feature | why PyRadiomics misses it |
+|---|---|---|---|
+| new view | orientation | taller-than-wide ratio = vertical / horizontal extent of the mask | MajorAxisLength, Elongation use the nodule's own axes: a lying and a standing ellipse get the same values |
+| new view | contrast with the surroundings | echogenicity ratio = mean inside / mean of a ring of surrounding tissue | first-order sees only absolute brightness inside the mask, which depends on scanner gain |
+| new view | boundary (inside vs outside) | margin sharpness = gradient across the boundary / spread of the surroundings | needs pixels on both sides of the boundary; PyRadiomics sees only the inside |
+| partial overlap | outline irregularity | solidity = area / convex-hull area | related to Sphericity, PerimeterSurfaceRatio; solidity targets lobulation directly |
+| partial overlap | fluid content | anechoic fraction = share of pixels much darker than the ring | related to first-order percentiles, but relative to the surroundings |
+| partial overlap | punctate bright spots | punctate foci density = small, separate bright spots per 1,000 pixels | first-order max / 90th percentile see bright pixels, not whether they form small separate spots |
+
+So the engineering contribution is two views PyRadiomics structurally lacks (orientation and context), plus three clinically defined summaries of information PyRadiomics only spreads over many features. Evidence that this is new information: with matched seeds, adding these features raised the LLM's AUC by +0.059 on average (minimum +0.050).
+
 ## 7. Prompt
 
 "Classify this thyroid nodule as benign or malignant based on the following standardized radiomic features." followed by one sentence per feature, "The '{name}' feature is measured at {z:.3f}.", TI-RADS features first, then mRMR order. Readable names (`original_shape2D_Elongation` → Elongation); a name shared by families gets the family added. The longest prompt is checked before training and the run stops if it would be truncated (≤ 384 tokens with 16 features, ≤ 512 with TI-RADS).
@@ -198,7 +225,7 @@ Run 1: query 0 = training prompt; queries 1–9 each shuffle the feature order, 
 | O | Qwen2.5-1.5B | as D | decimal | seed 1 | 0.706 | 0.695 | 0.712 |
 | P | Qwen2.5-1.5B | as D | decimal | seed 2 | 0.723 | 0.715 | 0.713 |
 
-Large-model runs (C, G, L) are single-seed, and no learning-rate search was done for 7B (run L's validation AUC was still rising at epoch 5); the like-for-like comparison is C vs D (same features, LR, epochs and effective batch).
+Large-model runs (C, G, L) are single-seed, and no learning-rate search was done for 7B (run L's validation AUC was still rising at epoch 5); the like-for-like comparison is C vs D (same features, LR, epochs and effective batch). Why Qwen2.5-1.5B stays the main model: (1) in the like-for-like comparison C vs D, 7B is lower (0.713 vs 0.754, paired interval [−0.069, −0.004]); (2) all three large-model runs fall below the matching 1.5B run; (3) the 1.5B result is replicated over three seeds (0.785 ± 0.018), the 7B trainings were unstable; (4) XGBoost on the same 22 numbers reaches 0.835 and the LLM adds nothing to it, so the features, not the backbone size, set the limit; (5) three to seven times the training time.
 
 Training times: 1.5B 26–37 min, rich 83–132 min, Qwen 7B 90–123 min, Llama 182 min. Hardware: Colab T4, then Colab Pro L4.
 
