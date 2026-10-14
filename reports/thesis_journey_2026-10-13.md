@@ -98,9 +98,11 @@
 | calibration vs official test | **0.63** (p = 0.002) |
 | calibration vs test, pooled split | **0.43** |
 
-**Caveat recorded.** Patient IDs are not released, so the pooled split is at image level; images of one patient can fall into different splits. This inflates absolute AUCs for all models alike and is reported as a limitation.
+**One limitation to keep in mind.** TN3K does not say which images come from the same patient, so the split is made per image: two images of one patient can end up one in training and one in test. The model may then partly recognise the patient rather than judge the nodule, which makes every model's AUC look somewhat higher than it would on new patients. It affects all models in the same way, so the comparisons between them still hold. It is reported as a limitation.
 
 ## 4. Revised features and the first pooled-split LLM runs (8–9 October)
+
+**Why new features.** The audit above showed that the v1 features themselves were the weak point: texture was computed on only about 9 grey levels inside a nodule, sizes were in pixels although image sizes differ, and many masks had several pieces. Training more models on these numbers would not help, so the features were extracted again first.
 
 **v2 extraction.** 64 grey levels, size features relative to the image, the seven PyRadiomics feature families (102 features: shape 9, first-order 18, GLCM 24, GLRLM 16, GLSZM 16, GLDM 14, NGTDM 5; shape measures geometry, first-order the brightness histogram, the five texture families how grey levels are arranged: neighbouring pairs, runs along a line, connected zones, neighbour similarity, difference from the neighbourhood mean), largest mask component only. On single-component masks it reproduces v1 exactly.
 
@@ -151,19 +153,17 @@
 
 **Idea.** PyRadiomics describes the nodule on its own. Several ACR TI-RADS signs depend on what it leaves out: the orientation of the nodule (taller-than-wide) and its contrast with the surrounding tissue.
 
-**Background: what ACR TI-RADS is** (Tessler et al., 2017). Radiologists score a thyroid nodule on five ultrasound categories, add the points, and the total gives a risk level (TR1 benign … TR5 highly suspicious) that decides whether a biopsy (FNA) is recommended, depending on the nodule's size.
+**Background: what ACR TI-RADS is** (Tessler et al., 2017). Radiologists score a thyroid nodule on five ultrasound categories, add the points, and the total gives a risk level (TR1 benign … TR5 highly suspicious) that decides whether a biopsy (FNA) is recommended.
 
-| TI-RADS category | what the radiologist looks at | options and points | our feature |
-|---|---|---|---|
-| composition | cystic or solid | cystic or spongiform 0 · mixed cystic-solid 1 · solid 2 | anechoic fraction |
-| echogenicity | darker or brighter than the surrounding thyroid | anechoic 0 · hyper- or isoechoic 1 · hypoechoic 2 · very hypoechoic 3 | echogenicity ratio |
-| shape | taller than wide on a transverse view | wider-than-tall 0 · taller-than-wide 3 | taller-than-wide ratio |
-| margin | smooth, lobulated or irregular | smooth 0 · ill-defined 0 · lobulated or irregular 2 · extrathyroidal extension 3 | solidity, margin sharpness |
-| echogenic foci | bright spots, e.g. microcalcifications | none or large comet-tail 0 · macrocalcifications 1 · peripheral (rim) 2 · punctate 3 (types add up) | punctate foci density |
+| TI-RADS category | what the radiologist looks at | our feature |
+|---|---|---|
+| composition | cystic or solid | anechoic fraction |
+| echogenicity | darker or brighter than the surrounding thyroid | echogenicity ratio |
+| shape | taller than wide | taller-than-wide ratio |
+| margin | smooth, lobulated or irregular | solidity, margin sharpness |
+| echogenic foci | bright spots, e.g. microcalcifications | punctate foci density |
 
-Total points → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). FNA is recommended for TR3 from 2.5 cm, TR4 from 1.5 cm and TR5 from 1 cm. Our features are automatic, continuous approximations of these signs; they do not reproduce the radiologist's points.
-
-**Note on margin sharpness.** ACR TI-RADS gives an ill-defined margin 0 points; the margin points come from a lobulated or irregular outline, which solidity measures. Margin sharpness is therefore an extra measurement inspired by the margin category, not a direct copy of a scored sign.
+Our features are automatic measurements of these signs; they do not reproduce the radiologist's score.
 
 **Feature engineering: what TI-RADS adds to PyRadiomics.** PyRadiomics already measures shape, brightness and texture, but by design it (a) is rotation-invariant, so it ignores how the nodule is oriented, and (b) uses only the pixels inside the mask, so it never compares the nodule with the tissue around it. Two TI-RADS signs rest exactly on these.
 
@@ -180,7 +180,7 @@ So the engineering contribution is two views PyRadiomics structurally lacks (ori
 
 **What was done.** Six features were written from the image and mask, with settings fixed before looking at labels: taller-than-wide ratio, echogenicity ratio, punctate foci density, solidity, margin sharpness, anechoic fraction. Three behaved as TI-RADS predicts; the echogenicity ratio pointed the wrong way because it mostly measures fluid (correlation −0.78 with the anechoic fraction).
 
-| feature | TI-RADS sign | train AUC alone | direction |
+| our feature | TI-RADS sign | train AUC alone | direction |
 |---|---|---|---|
 | taller-than-wide ratio | shape | 0.658 | as expected |
 | solidity | margin | 0.367 | as expected (lower = irregular = malignant) |
@@ -217,7 +217,7 @@ The 7B instability pointed to a too-high learning rate, so Qwen2.5-7B was retrai
 
 Training was calmer, but the result far below 1.5B (interval [−0.148, −0.076]), and the TI-RADS features gave 7B nothing. Three large-model attempts point the same way: in this setup a larger backbone does not help.
 
-**Caveat.** These are single-seed runs, and no learning-rate search was done for 7B. Run C used the learning rate chosen for 1.5B; run L used a four times lower one, and its validation AUC was still rising at epoch 5 (0.691 → 0.736 → 0.742 → 0.751 → 0.753), so it may have stopped before converging. Llama-2 (run G) had no TI-RADS features. The supported claim is therefore limited: *in the settings tried, a larger backbone did not help*; it is not shown that a larger backbone cannot help.
+**Limits of this comparison.** These are single-seed runs, and no learning-rate search was done for 7B. Run C used the learning rate chosen for 1.5B; run L used a four times lower one, and its validation AUC was still rising at epoch 5 (0.691 → 0.736 → 0.742 → 0.751 → 0.753), so it may have stopped before converging. Llama-2 (run G) had no TI-RADS features. The supported claim is therefore limited: *in the settings tried, a larger backbone did not help*; it is not shown that a larger backbone cannot help.
 
 **Why Qwen2.5-1.5B stays the main model.**
 1. In the one like-for-like comparison (same 16 features, learning rate, epochs and effective batch: run C vs run D), 7B is lower: 0.713 vs 0.754, paired interval [−0.069, −0.004].
@@ -276,6 +276,8 @@ So the observed rate has to be about 0–2%, not just below 5%; the gap is the u
 
 **Applied.** XGBoost's cleanest 52 nodules hold 2 cancers: observed rate 3.8%, below 5%. But if the true rate were 5%, 2 or fewer cancers in 52 nodules would happen with probability ≈ 51%, so this is no evidence. Two cancers would need 124 nodules; widening the group to 104 brings in a third cancer, which needs 153. The LLM's tail (4 in 52, ≈ 8%) is above 5% even as observed.
 
+**The three tables below.** The first is pure arithmetic from the binomial test: how large a group must be for a given number of errors; it is the same for any model. The second shows our models' real calibration numbers. The third is Mondrian split CP, a different guarantee: it promises that 95% of cancers are flagged (miss rate ≤ 5%). Its last column, cancers among the auto-benign, is R1, which it does not promise. The 20% target belongs only to the auto-malignant side (R2: benign nodules among those called malignant).
+
 | smallest group LTT can certify (δ = 0.05) | 0 errors | 1 | 2 | 3 |
 |---|---|---|---|---|
 | auto-benign, α = 5% | 59 | 93 | 124 | 153 |
@@ -292,7 +294,7 @@ So the observed rate has to be about 0–2%, not just below 5%; the gap is the u
 | LLM, 3-seed average | 0.934 | 0.950 ± 0.024 | 16.7% | 9.8% |
 
 - Even XGBoost, the strongest model, certifies nothing at 5%: 2 cancers among its cleanest 78 would need 124 nodules.
-- Mondrian coverage of cancers was below 0.95 in 12 of 16 runs on our split, but averages 0.95 over re-splits: **the guarantee holds; our split was unlucky**.
+- Mondrian coverage of cancers was below 0.95 in 12 of 16 runs on our split, but averages 0.95 over re-splits: **the guarantee holds; our split was unlucky**. The 6.4% and 9.8% in the last column are R1, which Mondrian does not promise, and they are above 5%.
 
 ## 9. A design that can pass, and one more feature idea (13 October)
 
@@ -328,7 +330,7 @@ The most permissive certified candidate is used: threshold 0.833, the top 10%.
 
 **What "auto-malignant" means.** The triage puts each nodule in one of three boxes: *auto-benign* (very low probability; no biopsy), *referred* (in between; a clinician decides, most nodules land here) and *auto-malignant* (very high probability; the system calls it malignant on its own and flags it as high risk). The auto-malignant guarantee: at most 20% of these calls are in fact benign. On our split the certified threshold is 0.833: 9.8% of the 438 test nodules (about 43) become auto-malignant, and 14% of them (about 6) are benign, within the 20%. Over 2,000 re-splits about 8% are decided, with 7.4% benign among them.
 
-**Why auto-benign stays at 0%.** There the problem is not the order but the tail itself (see the conformal checks above). **Why the LLM passes more often than XGBoost (99% vs 38%) despite a lower AUC:** AUC scores the whole ranking; this test looks only at the top 5–30%, where the 3-seed LLM average is cleaner. **Caveat:** the design was written after the main results; it is pre-registered but tested on the same data, so it is exploratory until confirmed on new data (e.g. ThyroidXL).
+**Why auto-benign stays at 0%.** There the problem is not the order but the tail itself (see the conformal checks above). **Why the LLM passes more often than XGBoost (99% vs 38%) despite a lower AUC:** AUC scores the whole ranking; this test looks only at the top 5–30%, where the 3-seed LLM average is cleaner. **Keep in mind:** the design was written after the main results; it is pre-registered but tested on the same data, so it is exploratory until confirmed on new data (e.g. ThyroidXL).
 
 **Peritumoral radiomics.** PyRadiomics features in a ring around the nodule (93 features), with a rule fixed in advance: pass them to the LLM only if they improve XGBoost on calibration.
 

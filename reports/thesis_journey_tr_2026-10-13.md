@@ -122,13 +122,15 @@ Bu split'te daha fazla özellik test'te de kazandırmaya başladı (XGBoost, 67 
 - 298 maske birden fazla parçadan oluşuyordu,
 - 356 maske görüntü kenarına değiyordu.
 
-**Kayda geçen sınırlama.** Hasta kimlikleri veri setinde yok, bu yüzden pooled split görüntü düzeyinde. Aynı hastanın görüntüleri farklı split'lere düşebilir. Bu, bütün modellerin mutlak AUC'sini aynı ölçüde şişirir ve sınırlama olarak raporlanıyor.
+**Akılda tutulması gereken bir sınırlama.** TN3K hangi görüntünün hangi hastaya ait olduğunu söylemiyor, bu yüzden bölme görüntü bazında yapıldı: aynı hastanın bir görüntüsü train'e, diğeri test'e düşebilir. Model o zaman nodülü değerlendirmek yerine kısmen hastayı tanıyabilir; bu da bütün modellerin AUC'sini yeni hastalarda olacağından biraz yüksek gösterir. Bütün modelleri aynı şekilde etkilediği için modeller arasındaki karşılaştırmalar geçerli kalıyor. Tezde sınırlama olarak yazılı.
 
 > 🗣 **Anlatım notu:** "Bu gün iki temel düzeltme yaptım. Birincisi split: veriyi birleştirip yeniden böldüm, exchangeability testi 0,63'ten 0,43'e indi. İkincisi özellikler: denetimde dört hata buldum. XGBoost'u da bu noktadan sonra referans model olarak kullandım."
 
 ---
 
 ## 4. Yeni özellikler ve pooled split'teki ilk LLM run'ları (8–9 Ekim)
+
+**Neden yeni özellikler?** Yukarıdaki denetim, asıl zayıf noktanın v1 özelliklerinin kendisi olduğunu gösterdi: doku bir nodülün içinde sadece yaklaşık 9 gri seviyeyle hesaplanıyordu, görüntü boyutları farklı olduğu hâlde boyutlar pikseldi ve birçok maske birden fazla parçadan oluşuyordu. Bu sayılarla daha fazla model eğitmek işe yaramayacaktı, bu yüzden önce özellikleri yeniden çıkardık.
 
 **v2 çıkarımı.** 64 gri seviye, görüntüye göre normalize edilmiş boyut, PyRadiomics'in yedi özellik ailesi (102 özellik: şekil 9, first-order 18, GLCM 24, GLRLM 16, GLSZM 16, GLDM 14, NGTDM 5. Şekil geometriyi, first-order parlaklık dağılımını, beş doku ailesi de gri tonların diziliş biçimini ölçüyor: komşu piksel çiftleri, düz çizgideki tekrarlar, bitişik bölgeler, komşu benzerliği, komşu ortalamasından fark), maskenin sadece en büyük parçası. Tek parçalı maskelerde v1'i birebir tekrar üretiyor.
 
@@ -189,19 +191,17 @@ Bu split'te daha fazla özellik test'te de kazandırmaya başladı (XGBoost, 67 
 
 **Fikir.** PyRadiomics nodülü tek başına inceliyor. ACR TI-RADS'ın bazı işaretleri ise tam da onun dışarıda bıraktığı şeylere bağlı: nodülün yönelimi (taller-than-wide) ve çevre dokuyla kontrastı.
 
-**Arka plan: ACR TI-RADS nedir?** (Tessler et al., 2017). Radyologlar bir tiroid nodülünü ultrasonda beş kategoride puanlıyor ve puanları topluyor. Toplam puan bir risk seviyesi veriyor: TR1 iyi huylu … TR5 çok şüpheli. Bu seviye, nodülün boyutuyla birlikte biyopsi (FNA) önerilip önerilmeyeceğini belirliyor.
+**Arka plan: ACR TI-RADS nedir?** (Tessler et al., 2017). Radyologlar bir tiroid nodülünü ultrasonda beş kategoride puanlıyor ve puanları topluyor. Toplam puan bir risk seviyesi veriyor (TR1 iyi huylu … TR5 çok şüpheli) ve biyopsi (FNA) önerilip önerilmeyeceğini belirliyor.
 
-| TI-RADS kategorisi | radyolog neye bakıyor | seçenekler ve puanlar | bizim özelliğimiz |
-|---|---|---|---|
-| yapı (composition) | kistik mi, katı mı | kistik ya da süngerimsi 0 · karışık kistik-katı 1 · katı 2 | sıvı oranı |
-| ekojenite | çevredeki tiroid dokusundan koyu mu, parlak mı | anekoik 0 · hiper ya da izoekoik 1 · hipoekoik 2 · çok hipoekoik 3 | ekojenite oranı |
-| şekil | enine kesitte boyu eninden uzun mu | eni boyundan geniş 0 · boyu eninden uzun 3 | taller-than-wide oranı |
-| kenar (margin) | düzgün, loblu ya da düzensiz | düzgün 0 · belirsiz 0 · loblu ya da düzensiz 2 · tiroid dışına taşma 3 | solidity, kenar keskinliği |
-| ekojenik odaklar | parlak noktalar, örneğin mikrokalsifikasyon | yok ya da büyük kuyruklu yıldız 0 · makrokalsifikasyon 1 · çevresel (rim) 2 · noktasal 3 (türler toplanır) | parlak nokta yoğunluğu |
+| TI-RADS kategorisi | radyolog neye bakıyor | bizim özelliğimiz |
+|---|---|---|
+| yapı (composition) | kistik mi, katı mı | sıvı oranı |
+| ekojenite | çevredeki tiroid dokusundan koyu mu, parlak mı | ekojenite oranı |
+| şekil | boyu eninden uzun mu | taller-than-wide oranı |
+| kenar (margin) | düzgün, loblu ya da düzensiz | solidity, kenar keskinliği |
+| ekojenik odaklar | parlak noktalar, örneğin mikrokalsifikasyon | parlak nokta yoğunluğu |
 
-Toplam puan → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Biyopsi (FNA) önerisi: TR3'te 2,5 cm'den, TR4'te 1,5 cm'den, TR5'te 1 cm'den itibaren. Bizim özelliklerimiz bu işaretlerin otomatik, sürekli (continuous) yaklaşımları. Radyoloğun puanını birebir üretmiyorlar.
-
-**Kenar keskinliği hakkında not.** ACR TI-RADS'ta belirsiz (ill-defined) kenar 0 puan alıyor. Kenar puanı loblu ya da düzensiz dış hattan geliyor, onu da Solidity ölçüyor. Yani kenar keskinliği, ACR'nin puanladığı bir işaretin birebir karşılığı değil, kenar kategorisinden esinlenmiş ek bir ölçüm.
+Bizim özelliklerimiz bu işaretlerin otomatik ölçümleri; radyoloğun puanını birebir üretmiyorlar.
 
 > 🗣 Kısaca: "TI-RADS, radyologların beş işarete puan verdiği bir sistem: yapı, ekojenite, şekil, kenar ve parlak noktalar. Ben bu beş işareti görüntüden otomatik ölçen altı özellik yazdım. PyRadiomics bunların özellikle şekil yönelimini ve çevreyle kontrastı ölçmüyordu."
 
@@ -222,7 +222,7 @@ Yani mühendislik katkısı: PyRadiomics'te yapısal olarak olmayan iki bakış 
 
 **Ne yaptık?** Görüntü ve maskeden altı özellik yazdık. Ayarları etiketlere bakmadan önce sabitledik.
 
-| özellik | TI-RADS işareti | tek başına train AUC'si | yön |
+| bizim özelliğimiz | TI-RADS işareti | tek başına train AUC'si | yön |
 |---|---|---|---|
 | taller-than-wide oranı | şekil | 0,658 | beklendiği gibi |
 | solidity | kenar | 0,367 | beklendiği gibi (düşük = düzensiz = kötü huylu) |
@@ -263,7 +263,7 @@ Yani mühendislik katkısı: PyRadiomics'te yapısal olarak olmayan iki bakış 
 
 Eğitim daha sakindi, ama sonuç 1.5B'nin çok altında kaldı (aralık [−0,148, −0,076]) ve TI-RADS özellikleri 7B'ye hiçbir şey kazandırmadı. Üç büyük model denemesi aynı sonuca varıyor: bu kurulumda daha büyük model kazandırmıyor.
 
-**Çekince.** Bu run'lar tek seed'le yapıldı ve 7B için öğrenme oranı (LR) araması yapılmadı. Run C, 1.5B için seçilen LR'yi kullandı. Run L dört kat düşük LR kullandı ve validation AUC'si 5. epoch'ta hâlâ yükseliyordu (0,691 → 0,736 → 0,742 → 0,751 → 0,753), yani model tam oturmadan durmuş olabilir. Llama-2'de (run G) TI-RADS özellikleri yoktu. Bu yüzden savunulabilir iddia sınırlı: *denediğimiz ayarlarda büyük model kazandırmadı*. Büyük modelin hiçbir zaman kazandıramayacağı gösterilmedi.
+**Bu karşılaştırmanın sınırları.** Bu run'lar tek seed'le yapıldı ve 7B için öğrenme oranı (LR) araması yapılmadı. Run C, 1.5B için seçilen LR'yi kullandı. Run L dört kat düşük LR kullandı ve validation AUC'si 5. epoch'ta hâlâ yükseliyordu (0,691 → 0,736 → 0,742 → 0,751 → 0,753), yani model tam oturmadan durmuş olabilir. Llama-2'de (run G) TI-RADS özellikleri yoktu. Bu yüzden savunulabilir iddia sınırlı: *denediğimiz ayarlarda büyük model kazandırmadı*. Büyük modelin hiçbir zaman kazandıramayacağı gösterilmedi.
 
 **Neden ana model hâlâ Qwen2.5-1.5B?**
 1. Tek birebir karşılaştırmada (aynı 16 özellik, aynı LR, epoch ve efektif batch: run C ile run D) 7B daha düşük: 0,713'e karşı 0,754, eşleştirilmiş aralık [−0,069, −0,004].
@@ -328,6 +328,8 @@ Yani gözlenen oranın %5'in biraz altında olması yetmiyor, %0–2 civarında 
 
 > 🗣 **Anlatım notu:** "%5'in altında olduğunu %95 güvenle söyleyebilmek için en temiz grupta kanser oranının %0–2 civarında olması ve grubun 60–150 nodül büyüklüğünde olması gerekiyor. Örneğin 59 nodülün hepsi temizse yeter; 30 temiz nodül ise bir şey kanıtlamaz, çünkü oran %5 olsa bile bu her beş denemeden birinde olur. XGBoost'un en temiz grubu oranı tutturuyor ama çok küçük; LLM'inki oranı da tutturmuyor."
 
+**Aşağıdaki üç tablo.** Birincisi binom testinin saf aritmetiği: belli sayıda hatayla grubun en az kaç nodül olması gerektiği; her model için aynı. İkincisi modellerimizin calibration'daki gerçek sayıları. Üçüncüsü Mondrian split CP, farklı bir garanti: kanserlerin %95'inin işaretlenmesini vaat ediyor (kaçırma oranı ≤ %5). Son sütunu, yani otomatik iyi huylular arasındaki kanser oranı R1'dir ve bu yöntem onu vaat etmiyor. %20 hedefi sadece otomatik kötü huylu tarafa ait (R2: kötü huylu dediklerimiz arasındaki iyi huylu oranı).
+
 | LTT'nin sertifikalayabileceği en küçük grup (δ = 0,05) | 0 hata | 1 | 2 | 3 |
 |---|---|---|---|---|
 | otomatik iyi huylu, α = %5 | 59 | 93 | 124 | 153 |
@@ -344,7 +346,7 @@ Yani gözlenen oranın %5'in biraz altında olması yetmiyor, %0–2 civarında 
 | LLM, 3 seed ortalaması | 0,934 | 0,950 ± 0,024 | %16,7 | %9,8 |
 
 - En güçlü model olan XGBoost bile %5'te hiçbir şeyi sertifikalamıyor. En temiz 78 nodülündeki 2 kanser için 124 nodül gerekirdi.
-- Mondrian'ın kanser kapsamı bizim bölünmede 16 run'ın 12'sinde 0,95'in altındaydı, ama yeniden bölmelerde ortalaması 0,95. **Garanti tutuyor, bizim bölünme şanssızdı.**
+- Mondrian'ın kanser kapsamı bizim bölünmede 16 run'ın 12'sinde 0,95'in altındaydı, ama yeniden bölmelerde ortalaması 0,95. **Garanti tutuyor, bizim bölünme şanssızdı.** Son sütundaki %6,4 ve %9,8 ise R1; Mondrian bunu vaat etmiyor ve ikisi de %5'in üstünde.
 
 > 🗣 **Anlatım notu:** "Bu gün sonuçların sağlam olup olmadığını test ettim. TI-RADS kazancı üç seed'de de tutuyor, ama en iyi gerçek değer 0,804 değil 0,785. LLM'i XGBoost'la birleştirince LLM'in hiçbir şey katmadığı ortaya çıktı. Conformal tarafta XGBoost bile R1'i alamıyor. Mondrian'ın garantisi ise yeniden bölmelerle doğrulandı."
 
@@ -389,7 +391,7 @@ Geçenlerin en cömerti kullanılıyor: eşik 0,833, yani en yüksek %10.
 
 **"Otomatik kötü huylu" ne demek?** Triage her nodülü üç kutudan birine koyuyor: *otomatik iyi huylu* (olasılık çok düşük; biyopsiye gerek yok), *belirsiz* (arada; doktor karar veriyor, nodüllerin çoğu burada) ve *otomatik kötü huylu* (olasılık çok yüksek; sistem doktora sormadan "kötü huylu" diyor ve yüksek riskli olarak işaretliyor). Otomatik kötü huylu garantisi: bu kararların en fazla %20'si aslında iyi huylu. Bizim bölünmede sertifikalanan eşik 0,833: 438 test nodülünün %9,8'i (yaklaşık 43) otomatik kötü huylu oldu, bunların %14'ü (yaklaşık 6) aslında iyi huyluydu, %20'nin altında. 2.000 yeniden bölmenin ortalamasında nodüllerin yaklaşık %8'i bu kutuya düşüyor, aralarında iyi huylu oranı %7,4.
 
-**Otomatik iyi huylu neden hâlâ %0?** Orada sorun sıra değil, kuyruğun kendisi (yukarıdaki conformal kontroller). **LLM'in AUC'si daha düşükken neden XGBoost'tan daha sık geçiyor (%99'a %38)?** AUC bütün sıralamayı ölçüyor; bu test sadece en üstteki %5–30'a bakıyor ve orada LLM'in 3 seed ortalaması daha temiz. **Çekince:** tasarım ana sonuçlardan sonra yazıldı; önceden kayıtlı ama aynı veride test edildi. Bu yüzden yeni veride (ör. ThyroidXL) doğrulanana kadar keşifsel (exploratory).
+**Otomatik iyi huylu neden hâlâ %0?** Orada sorun sıra değil, kuyruğun kendisi (yukarıdaki conformal kontroller). **LLM'in AUC'si daha düşükken neden XGBoost'tan daha sık geçiyor (%99'a %38)?** AUC bütün sıralamayı ölçüyor; bu test sadece en üstteki %5–30'a bakıyor ve orada LLM'in 3 seed ortalaması daha temiz. **Akılda tutulması gereken:** tasarım ana sonuçlardan sonra yazıldı; önceden kayıtlı ama aynı veride test edildi. Bu yüzden yeni veride (ör. ThyroidXL) doğrulanana kadar keşifsel (exploratory).
 
 > 🗣 **Anlatım notu:** "Planlanan LTT en sıkı eşikten başlıyordu; orada neredeyse hiç nodül olmadığı için ilk adımda duruyordu. Eşikleri nodül payıyla tanımlayıp sırayı bağımsız validation setine göre belirleyince otomatik kötü huylu taraf 2.000 yeniden bölmenin %99'unda sertifikalandı: sistem hastaların yaklaşık %8–10'una kendi başına 'kötü huylu' diyebiliyor ve bu kararların en fazla %20'si yanlış (pratikte %7–14). Otomatik iyi huylu taraf hâlâ geçmiyor, çünkü orada sorun tasarım değil, en temiz grubun yeterince temiz olmaması."
 
