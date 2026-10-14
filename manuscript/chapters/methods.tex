@@ -97,6 +97,10 @@ was looked at (\texttt{conformal\_triage/clinical.py}):
   \item \textbf{Margin:} solidity, the nodule area divided by the area of its convex hull
         (below 1 for lobulated or irregular outlines), and margin sharpness, the mean gradient
         magnitude on the boundary divided by the brightness spread of the nodule and the ring.
+        ACR TI-RADS scores an ill-defined margin with 0 points; its margin points come from a
+        lobulated or irregular outline (2) or extrathyroidal extension (3). Solidity targets the
+        scored sign; margin sharpness is an additional measurement inspired by the category, not
+        a counterpart of a scored sign.
   \item \textbf{Composition:} the share of nodule pixels darker than a quarter of the ring's
         mean brightness, as fluid would be.
 \end{itemize}
