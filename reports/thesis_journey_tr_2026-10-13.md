@@ -182,6 +182,20 @@ Bu split'te daha fazla özellik test'te de kazandırmaya başladı (XGBoost, 67 
 
 **Fikir.** PyRadiomics nodülü tek başına inceliyor. ACR TI-RADS'ın bazı işaretleri ise tam da onun dışarıda bıraktığı şeylere bağlı: nodülün yönelimi (taller-than-wide) ve çevre dokuyla kontrastı.
 
+**Arka plan: ACR TI-RADS nedir?** (Tessler et al., 2017). Radyologlar bir tiroid nodülünü ultrasonda beş kategoride puanlıyor ve puanları topluyor. Toplam puan bir risk seviyesi veriyor: TR1 iyi huylu … TR5 çok şüpheli. Bu seviye, nodülün boyutuyla birlikte biyopsi (FNA) önerilip önerilmeyeceğini belirliyor.
+
+| TI-RADS kategorisi | radyolog neye bakıyor | puan | bizim özelliğimiz |
+|---|---|---|---|
+| yapı (composition) | kistik mi, katı mı | 0–2 (katı = 2) | sıvı oranı |
+| ekojenite | çevredeki tiroid dokusundan koyu mu, parlak mı | 0–3 (çok hipoekoik = 3) | ekojenite oranı |
+| şekil | enine kesitte boyu eninden uzun mu | 0 ya da 3 | taller-than-wide oranı |
+| kenar (margin) | düzgün, loblu ya da düzensiz | 0–3 | solidity, kenar keskinliği |
+| ekojenik odaklar | parlak noktalar, örneğin mikrokalsifikasyon | 0–3 (noktasal = 3) | parlak nokta yoğunluğu |
+
+Toplam puan → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Bizim özelliklerimiz bu işaretlerin otomatik, sürekli (continuous) yaklaşımları. Radyoloğun puanını birebir üretmiyorlar.
+
+> 🗣 Kısaca: "TI-RADS, radyologların beş işarete puan verdiği bir sistem: yapı, ekojenite, şekil, kenar ve parlak noktalar. Ben bu beş işareti görüntüden otomatik ölçen altı özellik yazdım. PyRadiomics bunların özellikle şekil yönelimini ve çevreyle kontrastı ölçmüyordu."
+
 **Ne yaptık?** Görüntü ve maskeden altı özellik yazdık. Ayarları etiketlere bakmadan önce sabitledik.
 
 | özellik | TI-RADS işareti | tek başına train AUC'si | yön |

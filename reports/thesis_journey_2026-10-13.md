@@ -141,6 +141,18 @@ This introduced the distinction that runs through the rest of the work: a guaran
 
 **Idea.** PyRadiomics describes the nodule on its own. Several ACR TI-RADS signs depend on what it leaves out: the orientation of the nodule (taller-than-wide) and its contrast with the surrounding tissue.
 
+**Background: what ACR TI-RADS is** (Tessler et al., 2017). Radiologists score a thyroid nodule on five ultrasound categories, add the points, and the total gives a risk level (TR1 benign … TR5 highly suspicious) that decides whether a biopsy (FNA) is recommended, depending on the nodule's size.
+
+| TI-RADS category | what the radiologist looks at | points | our feature |
+|---|---|---|---|
+| composition | cystic or solid | 0–2 (solid = 2) | anechoic fraction |
+| echogenicity | darker or brighter than the surrounding thyroid | 0–3 (very hypoechoic = 3) | echogenicity ratio |
+| shape | taller than wide on a transverse view | 0 or 3 | taller-than-wide ratio |
+| margin | smooth, lobulated or irregular | 0–3 | solidity, margin sharpness |
+| echogenic foci | bright spots, e.g. microcalcifications | 0–3 (punctate = 3) | punctate foci density |
+
+Total points → TR1 (0), TR2 (2), TR3 (3), TR4 (4–6), TR5 (≥ 7). Our features are automatic, continuous approximations of these signs; they do not reproduce the radiologist's points.
+
 **What was done.** Six features were written from the image and mask, with settings fixed before looking at labels: taller-than-wide ratio, echogenicity ratio, punctate foci density, solidity, margin sharpness, anechoic fraction. Three behaved as TI-RADS predicts; the echogenicity ratio pointed the wrong way because it mostly measures fluid (correlation −0.78 with the anechoic fraction).
 
 | feature | TI-RADS sign | train AUC alone | direction |
