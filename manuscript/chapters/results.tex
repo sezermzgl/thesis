@@ -223,7 +223,15 @@ Qwen2.5-7B nothing (run L against run C: test interval $[-0.062, +0.023]$). Run 
 minutes on one L4 GPU, seven times as long as Qwen2.5-1.5B, for a lower AUC.
 
 Within this setup (QLoRA on Q and V, about 2,000 training prompts, 5 epochs), a larger backbone
-does not help, and Qwen2.5-1.5B stays the main model.
+did not help. The claim is limited to the settings tried: the large-model runs used one seed, no
+learning-rate search was done for 7B, the validation AUC of run L was still rising at the last
+epoch (0.691, 0.736, 0.742, 0.751, 0.753), and run G had no TI-RADS-motivated features.
+Qwen2.5-1.5B stays the main model for four reasons. In the one like-for-like comparison (run C
+against run D: same features, learning rate, epochs and effective batch) the 7B model is lower.
+All three large-model runs fall below the matching 1.5B run. The 1.5B result is stable over three
+seeds (Section~\ref{sec:results-seeds}). And XGBoost on the same features reaches 0.835 while the
+language model adds nothing to it (Section~\ref{sec:results-fusion}), so the features, not the
+size of the backbone, set the limit.
 
 \section{Do TI-RADS-motivated features help?}
 \label{sec:results-clinical}

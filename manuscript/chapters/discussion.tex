@@ -131,7 +131,9 @@ tabular model and without adding information to it.
         test results. The main conclusions do not depend on these choices.
   \item \textbf{Hyperparameters.} The learning rate was chosen for the 1.5B model. The 7B Qwen
         model was tried at two learning rates, and Llama-2-7B used the settings of Ra et al.\ but
-        5 epochs instead of 500. XGBoost was not tuned.
+        5 epochs instead of 500. The large-model runs used one seed each, and the validation AUC of
+        the low-learning-rate 7B run was still rising at the last epoch, so a tuned 7B model was
+        not tested. XGBoost was not tuned.
   \item \textbf{Prevalence.} With 35\% cancers, TN3K is a referral (FNA) population. Risks
         defined among the automatic decisions, such as $R_1$, depend on prevalence and would be
         easier to meet, and different, in a screening population.

@@ -9,7 +9,7 @@ The thesis asks two questions on TN3K thyroid ultrasound: (1) can a fine-tuned L
 1. **Best LLM setting**: Qwen2.5-1.5B, 16 mRMR radiomics features plus 6 TI-RADS-motivated features, plain decimal values. Test AUC **0.785 ± 0.018** (mean ± SD over three training seeds). A single run (seed 42) gave 0.804, which was the upper end.
 2. **The TI-RADS-motivated features are the largest gain**: +0.059 test AUC on average over three matched seeds (smallest +0.050; every matched pair's 95% interval excludes zero). They also help XGBoost (+0.026).
 3. **The LLM stays below a tabular model with the same information**: XGBoost on the same 22 features reaches test AUC 0.835. Fusing the two does not help: a stacker fitted on validation gives the LLM a weight of −0.04, and the probabilities correlate 0.87. The LLM adds no information beyond XGBoost.
-4. **Larger backbones, other prompt formats, the settings of Ra et al. and peritumoral radiomics do not help**: Qwen2.5-7B (two learning rates), Llama-2-7B, z-score/percentile/plain-language ("rich") formats are equal or worse, and PyRadiomics features of a ring around the nodule add nothing to XGBoost (calibration +0.002, interval includes zero).
+4. **Larger backbones, other prompt formats, the settings of Ra et al. and peritumoral radiomics do not help**: Qwen2.5-7B (two learning rates), Llama-2-7B, z-score/percentile/plain-language ("rich") formats are equal or worse (larger backbones: single seed and no learning-rate search for 7B, so "did not help in the settings tried"), and PyRadiomics features of a ring around the nodule add nothing to XGBoost (calibration +0.002, interval includes zero).
 5. **The planned LTT triage certifies nothing**, for the LLM *and* for XGBoost. Two reasons: the 5% auto-benign target needs a large, very clean tail (e.g. at most 1 cancer in 93 nodules), which neither model has; and the planned fixed sequence starts at the strictest threshold, where the groups are too small, and stops there.
 6. **Guarantees that are attainable**: Mondrian split CP and an LTT rule on the *miss rate* (share of all cancers sent to auto-benign ≤ 5%) both hold. Re-splitting calibration and test 4,000 times confirms the Mondrian coverage of cancers averages 0.950–0.951, as the theory says. But the auto-benign group they produce still contains about 10% cancers for the LLM (6% for XGBoost), against a 35% base rate. **A valid guarantee is not the same as a safe decision.**
 
@@ -96,6 +96,16 @@ The LLM uses the magnitude of the numbers; adding words around them does not hel
 | L | Qwen2.5-7B, LR 5e-5 | v2 + TI-RADS | 0.693 |
 
 The 7B models trained unstably (validation sensitivity swinging between 0 and 0.9, gradient norms up to 200); a lower LR calmed the swings but not the result. The TI-RADS features, which lift 1.5B by about 0.06, give Qwen2.5-7B nothing (L vs C, interval includes zero). Within this setup (QLoRA on Q/V, about 2,000 training prompts, 5 epochs) a larger backbone does not help.
+
+**Caveat.** These are single-seed runs, and no learning-rate search was done for 7B. Run C used the learning rate chosen for 1.5B; run L used a four times lower one, and its validation AUC was still rising at epoch 5 (0.691 → 0.736 → 0.742 → 0.751 → 0.753), so it may have stopped before converging. Llama-2 (run G) had no TI-RADS features. The supported claim is therefore limited: *in the settings tried, a larger backbone did not help*; it is not shown that a larger backbone cannot help.
+
+**Why Qwen2.5-1.5B stays the main model.**
+1. In the one like-for-like comparison (same 16 features, learning rate, epochs and effective batch: run C vs run D), 7B is lower: 0.713 vs 0.754, paired interval [−0.069, −0.004].
+2. All three large-model runs, under three different settings, land below the matching 1.5B run; none comes near 0.804.
+3. The 1.5B result is stable and replicated over three seeds (0.785 ± 0.018); the 7B trainings were unstable (gradient norms up to 200).
+4. Information ceiling: XGBoost on the same 22 numbers reaches 0.835 and the LLM adds nothing on top of it (stacking weight −0.04). A larger LLM could at best approach this ceiling; it cannot raise it.
+5. Cost: three to seven times the training time.
+
 
 ### 5.5 LLM vs XGBoost, and fusion
 

@@ -50,7 +50,7 @@ such as the taller-than-wide ratio and the solidity of the outline, give the lar
 three matched training seeds they raise the test AUC of Qwen2.5-1.5B from 0.726 to 0.785
 ($\pm 0.018$). XGBoost on the same features reaches 0.835, and combining the two models adds
 nothing to XGBoost. Larger backbones (Qwen2.5-7B, Llama-2-7B with the settings of Ra et al.) and
-alternative prompt formats do not help. The planned Learn-then-Test procedure certifies no
+alternative prompt formats did not help in the settings tried. The planned Learn-then-Test procedure certifies no
 automatic decision, for the language model or for XGBoost: the cleanest low-risk groups are too
 small or not clean enough for the evidence required, and the planned order of tests stops at
 thresholds that hold too few nodules. A design fixed in advance, with thresholds at quantiles of

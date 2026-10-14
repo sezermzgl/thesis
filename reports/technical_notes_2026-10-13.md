@@ -198,6 +198,8 @@ Run 1: query 0 = training prompt; queries 1–9 each shuffle the feature order, 
 | O | Qwen2.5-1.5B | as D | decimal | seed 1 | 0.706 | 0.695 | 0.712 |
 | P | Qwen2.5-1.5B | as D | decimal | seed 2 | 0.723 | 0.715 | 0.713 |
 
+Large-model runs (C, G, L) are single-seed, and no learning-rate search was done for 7B (run L's validation AUC was still rising at epoch 5); the like-for-like comparison is C vs D (same features, LR, epochs and effective batch).
+
 Training times: 1.5B 26–37 min, rich 83–132 min, Qwen 7B 90–123 min, Llama 182 min. Hardware: Colab T4, then Colab Pro L4.
 
 ## 15. Code and records

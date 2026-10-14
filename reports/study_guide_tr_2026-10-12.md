@@ -184,6 +184,16 @@ LTT ile aynı test, ama payda bütün calibration kanserleri (182). "Kaçırma o
 
 7B modellerin eğitimi kararsızdı: duyarlılık epoch'tan epoch'a 0 ile 0,9 arasında zıpladı, gradient norm 200'e çıktı. LR'yi düşürmek zıplamayı azalttı ama sonucu değiştirmedi. **Bu kurulumda (QLoRA, yaklaşık 2.000 örnek, 5 epoch) büyük model kazandırmıyor.**
 
+**Çekince.** Bu run'lar tek seed'le yapıldı ve 7B için öğrenme oranı (LR) araması yapılmadı. Run C, 1.5B için seçilen LR'yi kullandı. Run L dört kat düşük LR kullandı ve validation AUC'si 5. epoch'ta hâlâ yükseliyordu (0,691 → 0,736 → 0,742 → 0,751 → 0,753), yani model tam oturmadan durmuş olabilir. Llama-2'de (run G) TI-RADS özellikleri yoktu. Bu yüzden savunulabilir iddia sınırlı: *denediğimiz ayarlarda büyük model kazandırmadı*. Büyük modelin hiçbir zaman kazandıramayacağı gösterilmedi.
+
+**Neden ana model hâlâ Qwen2.5-1.5B?**
+1. Tek birebir karşılaştırmada (aynı 16 özellik, aynı LR, epoch ve efektif batch: run C ile run D) 7B daha düşük: 0,713'e karşı 0,754, eşleştirilmiş aralık [−0,069, −0,004].
+2. Üç büyük model run'ı, üç farklı ayarda, hepsi karşılık gelen 1.5B run'ının altında kaldı; hiçbiri 0,804'e yaklaşmadı.
+3. 1.5B sonucu kararlı ve üç seed'de tekrarlandı (0,785 ± 0,018); 7B eğitimleri kararsızdı (gradient norm 200'e kadar).
+4. Bilgi tavanı: aynı 22 sayıyla XGBoost 0,835'e ulaşıyor ve LLM onun üstüne hiçbir şey katmıyor (stacking ağırlığı −0,04). Daha büyük bir LLM en iyi ihtimalle bu tavana yaklaşır, tavanı yükseltemez.
+5. Maliyet: eğitim süresi üç ile yedi kat.
+
+
 ### 3.5 TI-RADS'tan esinlenen özellikler (en önemli olumlu bulgu)
 **Fikir:** radyologlar TI-RADS'ta şeye bakıyor: nodülün dik mi yatık mı olduğu (taller-than-wide), çevresine göre ne kadar karanlık olduğu (ekojenite), kenarının düzgünlüğü, sıvı içeriği, parlak noktalar. PyRadiomics bunların bir kısmını hiç ölçmüyor, çünkü nodülü tek başına inceliyor, çevresine ya da yönüne bakmıyor. Biz bu işaretleri görüntüden hesaplayan 6 özellik yazdık.
 
@@ -379,7 +389,7 @@ C: Garanti ortalama üzerinden. Calibration + test'i 4.000 kez yeniden böldüm,
 C: Olabilir. Hasta kimlikleri veri setinde yok, split görüntü düzeyinde. Bu bütün modellerin AUC'sini aynı yönde şişirir. Karşılaştırmaları etkilemez, conformal garantiyi de bozmaz, ama garanti "yeni hasta" değil "bu havuzdan yeni görüntü" için geçerli. Bunu sınırlama olarak yazıyorum.
 
 **S: Daha büyük model denedin mi?**
-C: Üç kez: Qwen 7B (iki farklı LR) ve Llama-2-7B. Hepsi 1.5B'nin altında kaldı ve eğitimleri kararsızdı.
+C: Üç kez: Qwen 7B (iki farklı LR) ve Llama-2-7B. Hepsi 1.5B'nin altında kaldı ve eğitimleri kararsızdı. Çekince: tek seed ve 7B için LR araması yok, o yüzden iddiam "denediğim ayarlarda kazandırmadı". Ama tek birebir karşılaştırmada (C ve D) 1.5B önde, 1.5B sonucu üç seed'de tekrarlandı ve bilgi tavanı (XGBoost 0,835) büyük modelin kazanabileceği alanı zaten sınırlıyor.
 
 **S: TI-RADS özellikleri gerçekten TI-RADS mi?**
 C: Hayır, görüntüden otomatik hesaplanan yaklaşımlar. Üçü TI-RADS'ın beklediği yönde çalıştı, ekojenite oranı sıvıyı ölçtüğü için ters yönde çıktı, parlak nokta özelliği sinyal vermedi. Ayarlar etiketlere bakmadan önceden sabitlendi.

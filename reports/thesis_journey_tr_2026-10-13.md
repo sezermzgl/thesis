@@ -241,7 +241,7 @@ Yani mühendislik katkısı: PyRadiomics'te yapısal olarak olmayan iki bakış 
 
 ---
 
-## 7. Büyük modele adil bir şans (11 Ekim)
+## 7. Büyük modele ikinci bir şans (11 Ekim)
 
 7B'deki kararsızlık LR'nin fazla yüksek olduğuna işaret ediyordu. Bu yüzden Qwen2.5-7B'yi LR 5e-5 ve TI-RADS özellikleriyle yeniden eğittik (run L).
 
@@ -254,7 +254,16 @@ Yani mühendislik katkısı: PyRadiomics'te yapısal olarak olmayan iki bakış 
 
 Eğitim daha sakindi, ama sonuç 1.5B'nin çok altında kaldı (aralık [−0,148, −0,076]) ve TI-RADS özellikleri 7B'ye hiçbir şey kazandırmadı. Üç büyük model denemesi aynı sonuca varıyor: bu kurulumda daha büyük model kazandırmıyor.
 
-> 🗣 **Anlatım notu:** "Büyük model sorusunu üç kez denedim, öğrenme oranını düşürmek dahil. Hepsi 1.5B'nin altında kaldı."
+**Çekince.** Bu run'lar tek seed'le yapıldı ve 7B için öğrenme oranı (LR) araması yapılmadı. Run C, 1.5B için seçilen LR'yi kullandı. Run L dört kat düşük LR kullandı ve validation AUC'si 5. epoch'ta hâlâ yükseliyordu (0,691 → 0,736 → 0,742 → 0,751 → 0,753), yani model tam oturmadan durmuş olabilir. Llama-2'de (run G) TI-RADS özellikleri yoktu. Bu yüzden savunulabilir iddia sınırlı: *denediğimiz ayarlarda büyük model kazandırmadı*. Büyük modelin hiçbir zaman kazandıramayacağı gösterilmedi.
+
+**Neden ana model hâlâ Qwen2.5-1.5B?**
+1. Tek birebir karşılaştırmada (aynı 16 özellik, aynı LR, epoch ve efektif batch: run C ile run D) 7B daha düşük: 0,713'e karşı 0,754, eşleştirilmiş aralık [−0,069, −0,004].
+2. Üç büyük model run'ı, üç farklı ayarda, hepsi karşılık gelen 1.5B run'ının altında kaldı; hiçbiri 0,804'e yaklaşmadı.
+3. 1.5B sonucu kararlı ve üç seed'de tekrarlandı (0,785 ± 0,018); 7B eğitimleri kararsızdı (gradient norm 200'e kadar).
+4. Bilgi tavanı: aynı 22 sayıyla XGBoost 0,835'e ulaşıyor ve LLM onun üstüne hiçbir şey katmıyor (stacking ağırlığı −0,04). Daha büyük bir LLM en iyi ihtimalle bu tavana yaklaşır, tavanı yükseltemez.
+5. Maliyet: eğitim süresi üç ile yedi kat.
+
+> 🗣 **Anlatım notu:** "Büyük modeli üç farklı ayarda denedim, öğrenme oranını düşürmek dahil. Hepsi 1.5B'nin altında kaldı. Bunlar tek seed'li run'lar ve 7B için LR araması yapmadım, o yüzden 'denediğim ayarlarda kazandırmadı' diyorum. Ama tek birebir karşılaştırmada da 1.5B önde, 1.5B sonucu üç seed'de tekrarlandı, ve aynı sayılarla XGBoost 0,835'te: sınır modelin boyutu değil, özelliklerdeki bilgi."
 
 ---
 

@@ -270,7 +270,7 @@ LTT ile aynı test, ama payda bütün calibration kanserleri. "Kanserlerin en fa
   - Rich format + TI-RADS: decimal ile eşit, ama 4 kat daha yavaş (132 dk'ya karşı 36).
 - **Not:** XGBoost'ta kalan 38 radyomik özelliği eklemek hiçbir şey kazandırmadı (0,796), 6 TI-RADS özelliği ise kazandırdı. Yani kazanç özellik sayısından değil, yeni bilgiden geliyor.
 
-### C7. Büyük modele adil bir şans (11 Ekim)
+### C7. Büyük modele ikinci bir şans (11 Ekim)
 - **Neden?** 7B'nin kararsızlığı LR'nin fazla yüksek olmasından olabilirdi.
 - **Ne yaptık?** Qwen2.5-7B'yi LR 5e-5 ve TI-RADS özellikleriyle yeniden eğittik.
 | model | özellikler | test AUC |
@@ -281,6 +281,13 @@ LTT ile aynı test, ama payda bütün calibration kanserleri. "Kanserlerin en fa
 | Qwen2.5-7B, LR 5e-5 (L) | radyomik + TI-RADS | 0,693 |
 
 - **Sonuç:** eğitim daha sakindi (duyarlılık 0,85 → 0,30 → 0,31 → 0,46 → 0,58), ama test 0,693. L ile I arasındaki fark anlamlı: [−0,148, −0,076]. TI-RADS özellikleri 7B'ye hiçbir şey kazandırmadı. Üç büyük model denemesi aynı yönde.
+- **Çekince.** Bu run'lar tek seed'le yapıldı ve 7B için öğrenme oranı (LR) araması yapılmadı. Run C, 1.5B için seçilen LR'yi kullandı. Run L dört kat düşük LR kullandı ve validation AUC'si 5. epoch'ta hâlâ yükseliyordu (0,691 → 0,736 → 0,742 → 0,751 → 0,753), yani model tam oturmadan durmuş olabilir. Llama-2'de (run G) TI-RADS özellikleri yoktu. Bu yüzden savunulabilir iddia sınırlı: *denediğimiz ayarlarda büyük model kazandırmadı*. Büyük modelin hiçbir zaman kazandıramayacağı gösterilmedi.
+- **Neden ana model hâlâ Qwen2.5-1.5B?**
+  1. Tek birebir karşılaştırmada (aynı 16 özellik, aynı LR, epoch ve efektif batch: run C ile run D) 7B daha düşük: 0,713'e karşı 0,754, eşleştirilmiş aralık [−0,069, −0,004].
+  2. Üç büyük model run'ı, üç farklı ayarda, hepsi karşılık gelen 1.5B run'ının altında kaldı; hiçbiri 0,804'e yaklaşmadı.
+  3. 1.5B sonucu kararlı ve üç seed'de tekrarlandı (0,785 ± 0,018); 7B eğitimleri kararsızdı (gradient norm 200'e kadar).
+  4. Bilgi tavanı: aynı 22 sayıyla XGBoost 0,835'e ulaşıyor ve LLM onun üstüne hiçbir şey katmıyor (stacking ağırlığı −0,04). Daha büyük bir LLM en iyi ihtimalle bu tavana yaklaşır, tavanı yükseltemez.
+  5. Maliyet: eğitim süresi üç ile yedi kat.
 
 ### C8. "Sonuç gerçek mi?" Seed'ler, birleştirme, conformal kontroller (12 Ekim)
 - **Seed tekrarları:**

@@ -428,6 +428,7 @@ Model "kötü huylu" derse (P ≥ u):
 | P | Qwen2.5-1.5B | D ile aynı | decimal | seed 2 | 0,723 | 0,715 | 0,713 |
 
 - A–P pooled split'te. "Filtre", kopya filtresi (|r| > 0,95).
+- **Büyük model çekincesi:** C, G ve L tek seed'li; 7B için LR araması yapılmadı (run L'nin validation AUC'si 5. epoch'ta hâlâ yükseliyordu). Birebir karşılaştırma C ile D (aynı özellikler, LR, epoch ve efektif batch).
 - **Eğitim süreleri:** 1.5B 26–37 dk, rich 83–132 dk, Qwen 7B 90–123 dk, Llama 182 dk.
 - **Donanım:** önce Colab T4 (ücretsiz), sonra Colab Pro L4.
 

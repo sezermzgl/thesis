@@ -192,7 +192,7 @@ So the engineering contribution is two views PyRadiomics structurally lacks (ori
 - The largest gain of any change: LLM +0.050 on test, paired interval [+0.015, +0.084].
 - The seventh feature fixed the reversed direction but added nothing; the rich format equalled decimal at four times the training time (132 vs 36 minutes).
 
-## 7. A fair test of the larger model (11 October)
+## 7. A second try with the larger model (11 October)
 
 The 7B instability pointed to a too-high learning rate, so Qwen2.5-7B was retrained with LR 5e-5 and the TI-RADS features (run L).
 
@@ -203,7 +203,16 @@ The 7B instability pointed to a too-high learning rate, so Qwen2.5-7B was retrai
 | Llama-2-7B, LR 1e-4 (run G) | radiomics | 0.731 |
 | Qwen2.5-7B, LR 5e-5 (run L) | radiomics + TI-RADS | 0.693 |
 
-Training was calmer, but the result far below 1.5B (interval [−0.148, −0.076]), and the TI-RADS features gave 7B nothing. Three large-model attempts agree: in this setup a larger backbone does not help.
+Training was calmer, but the result far below 1.5B (interval [−0.148, −0.076]), and the TI-RADS features gave 7B nothing. Three large-model attempts point the same way: in this setup a larger backbone does not help.
+
+**Caveat.** These are single-seed runs, and no learning-rate search was done for 7B. Run C used the learning rate chosen for 1.5B; run L used a four times lower one, and its validation AUC was still rising at epoch 5 (0.691 → 0.736 → 0.742 → 0.751 → 0.753), so it may have stopped before converging. Llama-2 (run G) had no TI-RADS features. The supported claim is therefore limited: *in the settings tried, a larger backbone did not help*; it is not shown that a larger backbone cannot help.
+
+**Why Qwen2.5-1.5B stays the main model.**
+1. In the one like-for-like comparison (same 16 features, learning rate, epochs and effective batch: run C vs run D), 7B is lower: 0.713 vs 0.754, paired interval [−0.069, −0.004].
+2. All three large-model runs, under three different settings, land below the matching 1.5B run; none comes near 0.804.
+3. The 1.5B result is stable and replicated over three seeds (0.785 ± 0.018); the 7B trainings were unstable (gradient norms up to 200).
+4. Information ceiling: XGBoost on the same 22 numbers reaches 0.835 and the LLM adds nothing on top of it (stacking weight −0.04). A larger LLM could at best approach this ceiling; it cannot raise it.
+5. Cost: three to seven times the training time.
 
 ## 8. Is the result real? Seeds, fusion, conformal checks (12 October)
 
