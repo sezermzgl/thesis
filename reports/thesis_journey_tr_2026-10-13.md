@@ -85,7 +85,7 @@ Oylar belirsizliği değil, eğitim formatından ne kadar uzaklaşıldığını 
 
 | hedef | otomatik iyi huyluya giden nodül (test) | kaçırılan kanser (test) | sonuç |
 |---|---|---|---|
-| kanserlerin ≤ %5'i | %7,2 | %5,1 | hedefe yakın, ama nodüllerin sadece %7'si otomatik cevap alıyor |
+| kanserlerin ≤ %5'i | %7,2 | %5,1 | hedefe yakın, ama çok az nodüle karar verildi |
 | kanserlerin ≤ %10'u | %24,4 | %15,3 | **bozuldu**: calibration ve test birbirine benzemiyordu |
 
 **Sonuç.** Kaçırma oranı sertifikalanabiliyor, R1 sertifikalanamadı. İkisi farklı vaatler ve bu ayrım çalışmanın geri kalanında hep karşımıza çıkıyor. %10 satırının bozulması, resmi split'in exchangeable olmadığının da ilk somut işaretiydi.
@@ -324,7 +324,7 @@ Yani gözlenen oranın %5'in biraz altında olması yetmiyor, %0–2 civarında 
 
 **En temiz kuyruk.** Her model calibration'daki 524 nodülün her birine bir kanser olasılığı veriyor. Küçükten büyüğe sıralayınca ilk %10 (52 nodül), modelin iyi huylu olduğundan en emin olduğu nodüller. Eşik oraya konsaydı bunlar otomatik iyi huylu olacaktı. %10–20'lik dilimlere bakmamızın sebebi: %5'lik dilim (26 nodül) hiç kanser olmasa bile sertifika alamaz (59 gerekiyor), daha geniş dilimler ise daha çok kanser içeriyor. LTT'nin kendisi bu dilimleri kullanmıyor; dilimler sadece neden geçemediğini gösteriyor.
 
-**Bizim veride.** XGBoost'un en temiz 52 nodülünde 2 kanser var: gözlenen oran %3,8, %5'in altında. Ama gerçek oran %5 olsaydı bile 52 nodülde 2 ya da daha az kanser görme ihtimali yaklaşık %51. Yani bu bir kanıt değil. 2 kanserle 124 nodül gerekirdi. Grubu 104'e büyütünce üçüncü kanser giriyor ve 153 gerekiyor. LLM'in kuyruğu (52'de 4, yaklaşık %8) gözlenen oran olarak bile %5'in üstünde.
+**Bizim veride.** XGBoost'un en temiz 52 nodülünde 2 kanser var: gözlenen oran %3,8, %5'in altında. Ama gerçek oran %5 olsaydı bile 52 nodülde 2 ya da daha az kanser görme ihtimali yaklaşık %51 (binom hesabı: X ~ Binom(52; 0,05) için P(X ≤ 2); LTT'nin δ = 0,05 ile karşılaştırdığı p-değeri bu). Yani bu bir kanıt değil. 2 kanserle 124 nodül gerekirdi. Grubu 104'e büyütünce üçüncü kanser giriyor ve 153 gerekiyor. LLM'in kuyruğu (52'de 4, yaklaşık %8) gözlenen oran olarak bile %5'in üstünde.
 
 > 🗣 **Anlatım notu:** "%5'in altında olduğunu %95 güvenle söyleyebilmek için en temiz grupta kanser oranının %0–2 civarında olması ve grubun 60–150 nodül büyüklüğünde olması gerekiyor. Örneğin 59 nodülün hepsi temizse yeter; 30 temiz nodül ise bir şey kanıtlamaz, çünkü oran %5 olsa bile bu her beş denemeden birinde olur. XGBoost'un en temiz grubu oranı tutturuyor ama çok küçük; LLM'inki oranı da tutturmuyor."
 
@@ -361,7 +361,7 @@ Yani gözlenen oranın %5'in biraz altında olması yetmiyor, %0–2 civarında 
 
 2.000 yeniden bölmede değerlendirildi:
 
-| sertifikalanan bölünme oranı | otomatik iyi huylu %5 | otomatik kötü huylu %20, eski tasarım | otomatik kötü huylu %20, yeni tasarım | otomatik kötü huyluya giden / aralarında iyi huylu |
+| sertifikalanan bölünme oranı | otomatik iyi huylu %5 | otomatik kötü huylu %20, eski tasarım | otomatik kötü huylu %20, yeni tasarım | karar verilen / aralarında iyi huylu |
 |---|---|---|---|---|
 | XGBoost | %0 | %0 | %38 | %10,7 / %14,9 |
 | LLM, 3 seed ortalaması | %0 | %1 | **%99** | %7,9 / %7,4 |
