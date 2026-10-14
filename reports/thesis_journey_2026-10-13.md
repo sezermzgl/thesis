@@ -98,6 +98,16 @@ This introduced the distinction that runs through the rest of the work: a guaran
 - mRMR kept selecting near-identical features (pixel surface and mesh surface are the same number in 2D), so a near-duplicate filter (|r| > 0.95, train only) was added before mRMR.
 - Predictions were computed under bfloat16 autocast, which rounded the probabilities (195 distinct values on 524 nodules); prediction was moved to full precision.
 
+**The 16 features the LLM sees** (selected by mRMR on train, after the near-duplicate filter; values are train z-scores):
+
+| group | features | what they describe |
+|---|---|---|
+| size and shape | MajorAxisLengthRelative, PixelSurfaceRelative, Elongation, PerimeterSurfaceRatioRelative, Sphericity | how long and large the nodule is relative to the image, how elongated, how round or irregular its outline |
+| brightness | Range, MeanAbsoluteDeviation | spread of grey values inside the nodule |
+| texture (GLCM) | Idm, MaximumProbability | local homogeneity; dominance of one grey-level pattern |
+| texture (GLSZM) | SmallAreaLowGrayLevelEmphasis, SizeZoneNonUniformity, SizeZoneNonUniformityNormalized, ZoneEntropy | small dark patches; how varied and random the zones of equal grey level are |
+| texture (GLDM) | DependenceVariance, DependenceNonUniformity, DependenceNonUniformityNormalized | how uniformly pixels resemble their neighbours |
+
 **Results (runs A–F, pooled split, 16 features).**
 
 | run | change | val | cal | test |

@@ -129,6 +129,18 @@ Bu split'te daha fazla özellik test'te de kazandırmaya başladı (XGBoost, 67 
 - mRMR neredeyse aynı özellikleri seçiyordu (2D'de piksel yüzeyi ile mesh yüzeyi aynı sayı). mRMR'den önce bir kopya filtresi eklendi (|r| > 0,95, sadece train).
 - Tahminler bfloat16 hassasiyetinde hesaplanıyordu ve olasılıklar yuvarlanıyordu (524 nodülde sadece 195 farklı değer). Tahmin tam hassasiyete taşındı.
 
+**LLM'in gördüğü 16 özellik** (train'de kopya filtresi ve mRMR ile seçildi, değerler train'e göre z-score):
+
+| grup | özellikler | ne anlatıyor |
+|---|---|---|
+| boyut ve şekil | MajorAxisLengthRelative, PixelSurfaceRelative, Elongation, PerimeterSurfaceRatioRelative, Sphericity | nodülün görüntüye göre uzunluğu ve büyüklüğü, ne kadar uzamış olduğu, sınırının ne kadar yuvarlak ya da düzensiz olduğu |
+| parlaklık | Range, MeanAbsoluteDeviation | nodül içindeki gri değerlerin yayılımı |
+| doku (GLCM) | Idm, MaximumProbability | yerel homojenlik; tek bir gri ton deseninin baskınlığı |
+| doku (GLSZM) | SmallAreaLowGrayLevelEmphasis, SizeZoneNonUniformity, SizeZoneNonUniformityNormalized, ZoneEntropy | küçük koyu lekeler; aynı gri tondaki bölgelerin ne kadar çeşitli ve rastgele olduğu |
+| doku (GLDM) | DependenceVariance, DependenceNonUniformity, DependenceNonUniformityNormalized | piksellerin komşularına ne kadar düzenli benzediği |
+
+> 🗣 Sorulursa: "16 özelliğin 5'i boyut ve şekil, 2'si parlaklık, 9'u doku. Her birinin tam tanımı teknik notlarımda var."
+
 **Sonuçlar (A–F run'ları, pooled split, 16 özellik).**
 
 | run | değişiklik | val | cal | test |
