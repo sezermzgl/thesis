@@ -65,9 +65,9 @@
 
 **Result with the miss rate** (same LTT test, official split):
 
-| target | nodules sent to auto-benign (test) | cancers missed (test) | verdict |
+| target | nodules sent to auto-benign (test) | cancers missed (test) | result |
 |---|---|---|---|
-| miss ≤ 5% of cancers | 7.2% | 5.1% | about on target, but few nodules decided |
+| miss ≤ 5% of cancers | 7.2% | 5.1% | close to the target, but only 7% of nodules get an automatic answer |
 | miss ≤ 10% of cancers | 24.4% | 15.3% | **broken**: calibration and test were not alike |
 
 **Takeaway.** The miss rate can be certified; R1 could not. They are different promises, and this distinction runs through the rest of the work. The broken 10% row was also the first concrete sign that the official split was not exchangeable.
@@ -110,7 +110,7 @@
 - mRMR kept selecting near-identical features (pixel surface and mesh surface are the same number in 2D), so a near-duplicate filter (|r| > 0.95, train only) was added before mRMR.
 - Predictions were computed under bfloat16 autocast, which rounded the probabilities (195 distinct values on 524 nodules); prediction was moved to full precision.
 
-**The 16 features the LLM sees** (selected by mRMR on train, after the near-duplicate filter; values are train z-scores):
+**The 16 features the LLM sees** (selected by mRMR on train, after the near-duplicate filter; each value is a z-score: how many standard deviations the nodule is above or below the training-set average):
 
 | group | features | what they describe |
 |---|---|---|
@@ -300,7 +300,7 @@ So the observed rate has to be about 0–2%, not just below 5%; the gap is the u
 
 **Pre-registered LTT design.** Written and committed before it was run: candidate thresholds at quantiles of the validation scores (5%–30% of nodules per side), ordered by validation p-values, fixed-sequence test on calibration. Evaluated over 2,000 re-splits:
 
-| share of re-splits certified | auto-benign 5% | auto-malignant 20%, planned design | auto-malignant 20%, new design | decided / benign among them |
+| share of re-splits certified | auto-benign 5% | auto-malignant 20%, planned design | auto-malignant 20%, new design | sent to auto-malignant / benign among them |
 |---|---|---|---|---|
 | XGBoost | 0% | 0% | 38% | 10.7% / 14.9% |
 | LLM, 3-seed average | 0% | 1% | **99%** | 7.9% / 7.4% |
@@ -328,7 +328,7 @@ The most permissive certified candidate is used: threshold 0.833, the top 10%.
 
 **Why the guarantee still holds.** Fixed-sequence testing only requires the order to be fixed without calibration data; validation is a separate, independent split. Every detail (candidates, order, α, δ) was committed to Git before the design was run.
 
-**What "auto-malignant" means.** The triage puts each nodule in one of three boxes: *auto-benign* (very low probability; no biopsy), *referred* (in between; a clinician decides, most nodules land here) and *auto-malignant* (very high probability; the system calls it malignant on its own and flags it as high risk). The auto-malignant guarantee: at most 20% of these calls are in fact benign. On our split the certified threshold is 0.833: 9.8% of the 438 test nodules (about 43) become auto-malignant, and 14% of them (about 6) are benign, within the 20%. Over 2,000 re-splits about 8% are decided, with 7.4% benign among them.
+**What "auto-malignant" means.** The triage puts each nodule in one of three boxes: *auto-benign* (very low probability; no biopsy), *referred* (in between; a clinician decides, most nodules land here) and *auto-malignant* (very high probability; the system calls it malignant on its own and flags it as high risk). The auto-malignant guarantee: at most 20% of these calls are in fact benign. On our split the certified threshold is 0.833: 9.8% of the 438 test nodules (about 43) become auto-malignant, and 14% of them (about 6) are benign, within the 20%. Over 2,000 re-splits about 8% of nodules are sent to auto-malignant, and 7.4% of those are benign.
 
 **Why auto-benign stays at 0%.** There the problem is not the order but the tail itself (see the conformal checks above). **Why the LLM passes more often than XGBoost (99% vs 38%) despite a lower AUC:** AUC scores the whole ranking; this test looks only at the top 5–30%, where the 3-seed LLM average is cleaner. **Keep in mind:** the design was written after the main results; it is pre-registered but tested on the same data, so it is exploratory until confirmed on new data (e.g. ThyroidXL).
 
@@ -361,7 +361,7 @@ Calibration +0.002 [−0.009, +0.014]: no gain, so no LLM run. The ring carries 
 | guarantee | attainable? | what it delivers |
 |---|---|---|
 | R1: ≤ 5% cancers among auto-benign (LTT) | **no**, for any model or design | – |
-| R2: ≤ 20% benign among auto-malignant (LTT, new design) | **yes**, 99% of re-splits (LLM) | about 8% of nodules decided, 6–7% of them benign |
+| R2: ≤ 20% benign among auto-malignant (LTT, new design) | **yes**, 99% of re-splits (LLM) | about 8% of nodules sent to auto-malignant, 6–7% of them benign |
 | ≤ 5% of all cancers missed (miss-rate LTT) | **yes** | 12% (LLM) or 24% (XGBoost) of test nodules auto-benign, 4.6% of cancers missed |
 | 95% of cancers covered (Mondrian split CP) | **yes**, 0.95 on average | 17% (LLM) or 26% (XGBoost) auto-benign, with about 10% / 6% cancers among them |
 

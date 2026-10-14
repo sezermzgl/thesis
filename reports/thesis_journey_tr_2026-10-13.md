@@ -83,9 +83,9 @@ Oylar belirsizliği değil, eğitim formatından ne kadar uzaklaşıldığını 
 
 **Kaçırma oranıyla sonuç** (aynı LTT testi, resmi split):
 
-| hedef | otomatik iyi huyluya giden nodül (test) | kaçırılan kanser (test) | yorum |
+| hedef | otomatik iyi huyluya giden nodül (test) | kaçırılan kanser (test) | sonuç |
 |---|---|---|---|
-| kanserlerin ≤ %5'i | %7,2 | %5,1 | hedefe yakın, ama çok az nodüle karar verildi |
+| kanserlerin ≤ %5'i | %7,2 | %5,1 | hedefe yakın, ama nodüllerin sadece %7'si otomatik cevap alıyor |
 | kanserlerin ≤ %10'u | %24,4 | %15,3 | **bozuldu**: calibration ve test birbirine benzemiyordu |
 
 **Sonuç.** Kaçırma oranı sertifikalanabiliyor, R1 sertifikalanamadı. İkisi farklı vaatler ve bu ayrım çalışmanın geri kalanında hep karşımıza çıkıyor. %10 satırının bozulması, resmi split'in exchangeable olmadığının da ilk somut işaretiydi.
@@ -138,7 +138,7 @@ Bu split'te daha fazla özellik test'te de kazandırmaya başladı (XGBoost, 67 
 - mRMR neredeyse aynı özellikleri seçiyordu (2D'de piksel yüzeyi ile mesh yüzeyi aynı sayı). mRMR'den önce bir kopya filtresi eklendi (|r| > 0,95, sadece train).
 - Tahminler bfloat16 hassasiyetinde hesaplanıyordu ve olasılıklar yuvarlanıyordu (524 nodülde sadece 195 farklı değer). Tahmin tam hassasiyete taşındı.
 
-**LLM'in gördüğü 16 özellik** (train'de kopya filtresi ve mRMR ile seçildi, değerler train'e göre z-score):
+**LLM'in gördüğü 16 özellik** (train'de kopya filtresi ve mRMR ile seçildi, her değer bir z-score: nodülün training setinin ortalamasından kaç standart sapma yukarıda ya da aşağıda olduğu):
 
 | grup | özellikler | ne anlatıyor |
 |---|---|---|
@@ -361,7 +361,7 @@ Yani gözlenen oranın %5'in biraz altında olması yetmiyor, %0–2 civarında 
 
 2.000 yeniden bölmede değerlendirildi:
 
-| sertifikalanan bölünme oranı | otomatik iyi huylu %5 | otomatik kötü huylu %20, eski tasarım | otomatik kötü huylu %20, yeni tasarım | karar verilen / aralarında iyi huylu |
+| sertifikalanan bölünme oranı | otomatik iyi huylu %5 | otomatik kötü huylu %20, eski tasarım | otomatik kötü huylu %20, yeni tasarım | otomatik kötü huyluya giden / aralarında iyi huylu |
 |---|---|---|---|---|
 | XGBoost | %0 | %0 | %38 | %10,7 / %14,9 |
 | LLM, 3 seed ortalaması | %0 | %1 | **%99** | %7,9 / %7,4 |
