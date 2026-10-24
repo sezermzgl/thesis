@@ -257,6 +257,17 @@ class TestSelection(unittest.TestCase):
         self.assertEqual(kept, list(self.X.columns))
         self.assertEqual(dropped, {})
 
+    def test_spearman_catches_monotone_twin(self):
+        X = self.X.assign(area_exp=np.exp(2 * self.X["area"]))      # same ranks as area, not linear
+        _, dropped_p = ct.drop_correlated(X, self.y, max_corr=0.95, method="pearson")
+        _, dropped_s = ct.drop_correlated(X, self.y, max_corr=0.95, method="spearman")
+        self.assertNotIn("area_exp", {**dropped_p, **{v: k for k, v in dropped_p.items()}})
+        self.assertIn("area_exp", {**dropped_s, **{v: k for k, v in dropped_s.items()}})
+
+    def test_unknown_method_rejected(self):
+        with self.assertRaises(ValueError):
+            ct.drop_correlated(self.X, self.y, method="kendall")
+
 
 class TestSemanticPrompts(unittest.TestCase):
     names = ["original_shape2D_Sphericity", "original_shape2D_MajorAxisLengthRelative",

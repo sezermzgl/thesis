@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 
 
-def drop_correlated(X: pd.DataFrame, y, max_corr: float = 0.95) -> tuple[list[str], dict[str, str]]:
-    """Remove near-duplicate features (|Pearson r| above `max_corr`); fit on the train split only.
+def drop_correlated(X: pd.DataFrame, y, max_corr: float = 0.95,
+                    method: str = "pearson") -> tuple[list[str], dict[str, str]]:
+    """Remove near-duplicate features (|r| above `max_corr`); fit on the train split only.
 
     mRMR (mrmr-selection) penalises a candidate by its mean correlation with all features chosen so
     far, so a near-copy of one chosen feature is diluted by the others and can still be picked:
@@ -14,11 +15,18 @@ def drop_correlated(X: pd.DataFrame, y, max_corr: float = 0.95) -> tuple[list[st
     a feature is kept only if it is within `max_corr` of every feature kept so far, so of two
     near-copies the more label-related one stays.
 
+    `method` is "pearson" or "spearman"; Spearman is Pearson on ranks, so it also treats monotone
+    but non-linear twins (e.g. x and exp(x)) as duplicates and is not driven by a few extreme values.
+
     Returns the kept features in their original column order, and a dict mapping each dropped
     feature to the kept feature it duplicates.
     """
+    if method not in ("pearson", "spearman"):
+        raise ValueError("method must be 'pearson' or 'spearman'")
     X = pd.DataFrame(X).reset_index(drop=True)
     y = np.asarray(y, dtype=np.float64)
+    if method == "spearman":
+        X, y = X.rank(), pd.Series(y).rank().to_numpy()
     corr = X.corr().abs()
     relevance = X.apply(lambda col: abs(np.corrcoef(col.to_numpy(dtype=np.float64), y)[0, 1]))
     order = relevance.fillna(0).sort_values(ascending=False, kind="mergesort").index
