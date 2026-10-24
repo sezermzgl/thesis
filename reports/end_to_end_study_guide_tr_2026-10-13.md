@@ -208,6 +208,16 @@ LTT ile aynı test, ama payda bütün calibration kanserleri. "Kanserlerin en fa
 | ≤ %5 | P ≤ 0,22 | %7,2 | %5,1 |
 | ≤ %10 | P ≤ 0,28 | %24,4 | %15,3 (ihlal) |
 
+- **t nasıl seçildi?** Aynı LTT işlemi: n = calibration'daki bütün kanserler (146), k = skoru ≤ t olanlar (kaçırılanlar). Adaylar t = 0,01, 0,02, …, 0,50, küçükten büyüğe test edildi; t büyüdükçe daha çok kanser kaçıyor ve p büyüyor. %5 hedefi için:
+
+| aday t | calibration'da otomatik iyi huylu | kaçan kanser (146'dan) | p-değeri | sonuç |
+|---|---|---|---|---|
+| 0,20 | %1,6 | 0 | 0,001 | geçti |
+| 0,21 | %3,2 | 1 | 0,005 | geçti |
+| 0,22 | %4,4 | 2 | 0,021 | geçti |
+| 0,23 | %6,5 | 3 | 0,063 | kaldı: dur |
+
+  Geçen son aday 0,22 seçildi. %10 hedefinde test 0,29'da durdu, t = 0,28 seçildi. Sonra iki eşik de test setine uygulandı (yukarıdaki tablo).
 - **Ders:** iki farklı garanti türü var. Kaçırma oranı program düzeyinde, R1 ise hasta düzeyinde. Bu ayrım tezin geri kalanının omurgası oldu.
 
 ### C3. Model, referans, split ve veri denetimi (8 Ekim)
@@ -239,7 +249,35 @@ LTT ile aynı test, ama payda bütün calibration kanserleri. "Kanserlerin en fa
 - **Kayıt altına alınan sınırlama:** split görüntü düzeyinde, hasta düzeyinde değil. TN3K'da hastadan 1.072 fazla görüntü var. En kötü senaryoda test görüntülerinin yaklaşık %39'unun train'de aynı hastadan bir görüntüsü olabilir. Gerçek oran bilinmiyor.
 
 ### C4. Yeni özellikler ve ilk LLM run'ları (8–9 Ekim)
+- **Neden yeni özellikler?** C3'teki denetim, asıl zayıf noktanın v1 özelliklerinin kendisi olduğunu gösterdi: doku bir nodülün içinde sadece yaklaşık 9 gri seviyeyle hesaplanıyordu, görüntü boyutları farklı olduğu hâlde boyutlar pikseldi, birçok maske birden fazla parçadan oluşuyordu. Bu sayılarla daha fazla model eğitmek işe yaramayacaktı, bu yüzden önce özellikleri yeniden çıkardık.
 - **v2 özellikleri:** 64 gri seviye, görüntüye göre normalize edilmiş boyut, PyRadiomics'in yedi özellik ailesi (102 özellik: şekil 9, first-order 18, GLCM 24, GLRLM 16, GLSZM 16, GLDM 14, NGTDM 5. Şekil geometriyi, first-order parlaklık dağılımını, beş doku ailesi de gri tonların diziliş biçimini ölçüyor: komşu piksel çiftleri, düz çizgideki tekrarlar, bitişik bölgeler, komşu benzerliği, komşu ortalamasından fark), maskenin sadece en büyük parçası. Tek parçalı maskelerde v1 ile birebir aynı değerleri veriyor.
+- **Seçim süreci (sadece train'de):** 102 özellik → kopya filtresi (|r| > 0,95 olan çiftlerden etiketle daha az ilişkili olan atılıyor) 48'ini attı, 54 kaldı → mRMR (etiketle en ilişkili, birbirine en az benzeyen) 16'sını seçti. Değerler train'in ortalaması ve standart sapmasıyla z-score'a çevrilip prompt'a yazılıyor.
+- **LLM'in gördüğü 16 özellik (mRMR sırası):**
+
+| # | özellik (aile) | ne ölçüyor |
+|---|---|---|
+| 1 | MajorAxisLengthRelative (şekil) | Nodülle aynı ikinci momentlere sahip elipsin uzun ekseni, görüntü boyutuna göre. Kabaca **nodülün uzunluğu**. |
+| 2 | SmallAreaLowGrayLevelEmphasis (GLSZM) | Küçük ve **koyu** bölgelerin (aynı gri tondaki bitişik piksel grupları) ağırlığı. Çok sayıda küçük koyu lekede yüksek. |
+| 3 | Elongation (şekil) | √(küçük öz değer / büyük öz değer). 1 = daire, küçüldükçe **uzamış**. |
+| 4 | PixelSurfaceRelative (şekil) | Maskenin piksel alanı / görüntü alanı. **Nodülün göreli büyüklüğü.** |
+| 5 | Range (birinci derece) | Nodül içindeki en parlak ve en koyu piksel farkı. **Parlaklık aralığı.** |
+| 6 | PerimeterSurfaceRatioRelative (şekil) | Çevre / alan, görüntüye göre ölçeklenmiş. **Düzensiz ya da küçük** sınırlarda yüksek. |
+| 7 | DependenceVariance (GLDM) | Her pikselin "benzer gri tondaki komşu sayısı"nın varyansı. **Homojenliğin ne kadar değiştiği.** |
+| 8 | MeanAbsoluteDeviation (birinci derece) | Parlaklığın ortalamadan ortalama mutlak sapması. **Parlaklık yayılımı.** |
+| 9 | Idm (GLCM) | Inverse difference moment. Komşu piksel çiftleri benzer gri tonlardaysa yüksek. **Yerel homojenlik.** |
+| 10 | Sphericity (şekil) | Aynı alana sahip dairenin çevresi / gerçek çevre. 1 = daire. **Yuvarlaklık**, düşükse düzensiz. |
+| 11 | DependenceNonUniformityNormalized (GLDM) | Bağımlılık büyüklüklerinin görüntü boyunca ne kadar eşit dağıldığı, normalize. |
+| 12 | DependenceNonUniformity (GLDM) | Aynısı, normalize edilmemiş, yani nodül büyüklüğünden de etkilenir. |
+| 13 | MaximumProbability (GLCM) | En sık görülen komşu gri ton çiftinin oranı. **Tek bir dokunun baskınlığı.** |
+| 14 | SizeZoneNonUniformity (GLSZM) | Bölge büyüklüklerinin ne kadar değişken olduğu, normalize edilmemiş. |
+| 15 | ZoneEntropy (GLSZM) | Bölge büyüklükleri ve gri tonlarının rastgeleliği. **Doku karmaşıklığı.** |
+| 16 | SizeZoneNonUniformityNormalized (GLSZM) | 14'ün normalize hâli. |
+
+**Gruplar hâlinde:**
+- **Boyut ve şekil (1, 3, 4, 6, 10):** uzunluk, uzama, alan, çevre/alan oranı, yuvarlaklık.
+- **Parlaklık dağılımı (5, 8):** aralık ve sapma.
+- **Doku (geri kalanlar):** homojenlik, bölge yapısı, karmaşıklık.
+
 - **Yol üstünde bulunan iki hata:**
   - mRMR, neredeyse aynı iki özelliği birlikte seçiyordu (2D'de piksel yüzeyi ve mesh yüzeyi aynı sayı). Kopya filtresi eklendi.
   - Tahminler bf16 hassasiyetinde hesaplanıyordu ve olasılıklar yuvarlanıyordu: 524 nodülde sadece 195 farklı değer. Tam hassasiyete geçildi.
