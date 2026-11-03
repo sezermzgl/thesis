@@ -1,0 +1,32 @@
+== XGBoost (22 features)
+   auto-benign, target E[cancers among auto-benign (R1)] <= 5%
+     our split: 26.9% of test nodules selected, cancers among auto-benign (R1) 7.6%
+     2000 re-splits: something selected in 67%; selected 14.7% (5-95%: 0.0%-28.3%); mean cancers among auto-benign (R1) 4.3% (the guaranteed quantity); single split above 5% in 47%
+   auto-malignant, target E[benign among auto-malignant (R2)] <= 20%
+     our split: 17.4% of test nodules selected, benign among auto-malignant (R2) 15.8%
+     2000 re-splits: something selected in 100%; selected 21.6% (5-95%: 13.9%-29.7%); mean benign among auto-malignant (R2) 20.0% (the guaranteed quantity); single split above 20% in 50%
+
+== LLM (mean of 3 seeds)
+   auto-benign, target E[cancers among auto-benign (R1)] <= 5%
+     our split: 0.0% of test nodules selected, cancers among auto-benign (R1) 0.0%
+     2000 re-splits: something selected in 10%; selected 1.1% (5-95%: 0.0%-11.6%); mean cancers among auto-benign (R1) 1.5% (the guaranteed quantity); single split above 5% in 10%
+   auto-malignant, target E[benign among auto-malignant (R2)] <= 20%
+     our split: 16.4% of test nodules selected, benign among auto-malignant (R2) 19.4%
+     2000 re-splits: something selected in 100%; selected 17.4% (5-95%: 9.8%-26.3%); mean benign among auto-malignant (R2) 19.6% (the guaranteed quantity); single split above 20% in 48%
+
+== LLM run I (seed 42)
+   auto-benign, target E[cancers among auto-benign (R1)] <= 5%
+     our split: 0.0% of test nodules selected, cancers among auto-benign (R1) 0.0%
+     2000 re-splits: something selected in 25%; selected 2.1% (5-95%: 0.0%-12.8%); mean cancers among auto-benign (R1) 2.9% (the guaranteed quantity); single split above 5% in 25%
+   auto-malignant, target E[benign among auto-malignant (R2)] <= 20%
+     our split: 16.2% of test nodules selected, benign among auto-malignant (R2) 18.3%
+     2000 re-splits: something selected in 100%; selected 18.5% (5-95%: 9.6%-29.7%); mean benign among auto-malignant (R2) 19.7% (the guaranteed quantity); single split above 20% in 51%
+
+== LLM run D (no TI-RADS)
+   auto-benign, target E[cancers among auto-benign (R1)] <= 5%
+     our split: 18.7% of test nodules selected, cancers among auto-benign (R1) 15.9%
+     2000 re-splits: something selected in 45%; selected 4.8% (5-95%: 0.0%-16.0%); mean cancers among auto-benign (R1) 3.7% (the guaranteed quantity); single split above 5% in 42%
+   auto-malignant, target E[benign among auto-malignant (R2)] <= 20%
+     our split: 6.4% of test nodules selected, benign among auto-malignant (R2) 7.1%
+     2000 re-splits: something selected in 99%; selected 9.8% (5-95%: 5.0%-15.8%); mean benign among auto-malignant (R2) 19.3% (the guaranteed quantity); single split above 20% in 47%
+
