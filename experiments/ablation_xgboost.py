@@ -80,7 +80,9 @@ def fit_cell(table: pd.DataFrame, assignment: pd.Series, clinical: list[str]) ->
     model = XGBClassifier(n_estimators=300, max_depth=3, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8,
                           scale_pos_weight=(y["train"] == 0).sum() / (y["train"] == 1).sum(),
                           random_state=SEED, verbosity=0).fit(X["train"][features], y["train"])
-    return {s: (y[s], model.predict_proba(X[s][features])[:, 1]) for s in ["validation", "test"]}
+    return {s: pd.DataFrame({"sample_id": parts[s]["sample_id"], "label": y[s],
+                             "p": model.predict_proba(X[s][features])[:, 1]}).sort_values("sample_id", ignore_index=True)
+            for s in ["validation", "test"]}
 
 
 def main():
@@ -115,7 +117,7 @@ def main():
                 for i, a in enumerate(assignments):
                     out = fit_cell(t, a, clin_cols if tirads else [])
                     rows.append({"split": sname, "features": fname, "TI-RADS": "yes" if tirads else "no",
-                                 "rep": i, **{f"AUC {s}": roc_auc_score(*out[s]) for s in out}})
+                                 "rep": i, **{f"AUC {s}": roc_auc_score(out[s]["label"], out[s]["p"]) for s in out}})
                     if i == 0:
                         keep[(sname, fname, tirads)] = out["test"]
     df = pd.DataFrame(rows)
@@ -143,10 +145,20 @@ def main():
                 changes.append((f"v1 -> v2 ({sname}, TI-RADS {'yes' if tirads else 'no'})",
                                 (sname, "v1", tirads), (sname, "v2", tirads)))
     for name, a, b in changes:
-        (ya, pa), (yb, pb) = keep[a], keep[b]
-        assert (ya == yb).all()
-        d, lo, hi = paired_bootstrap(yb, pb, pa)
+        m = keep[a].merge(keep[b], on=["sample_id", "label"], suffixes=("_a", "_b"))
+        assert len(m) == len(keep[a]) == len(keep[b]), "the two cells have different test nodules"
+        d, lo, hi = paired_bootstrap(m["label"].to_numpy(), m["p_b"].to_numpy(), m["p_a"].to_numpy())
         print(f"  {name}: {d:+.3f} [{lo:+.3f}, {hi:+.3f}]")
+
+    print("\nSame changes on the pooled split, averaged over the 20 random splits (difference in test AUC within each split):")
+    pooled = df[df.split == "pooled"].pivot_table(index="rep", columns=["features", "TI-RADS"], values="AUC test")
+    pairs = [("TI-RADS added, v1", ("v1", "no"), ("v1", "yes"))]
+    if "v2" in tables:
+        pairs += [("TI-RADS added, v2", ("v2", "no"), ("v2", "yes")), ("v1 -> v2, no TI-RADS", ("v1", "no"), ("v2", "no")),
+                  ("v1 -> v2, with TI-RADS", ("v1", "yes"), ("v2", "yes")), ("both (v1 -> v2 + TI-RADS)", ("v1", "no"), ("v2", "yes"))]
+    for name, a, b in pairs:
+        d = pooled[b] - pooled[a]
+        print(f"  {name}: {d.mean():+.3f} ± {d.std():.3f} (positive in {(d > 0).mean():.0%} of splits)")
 
     print("\nCost of the shift on the official split (validation is in-distribution, test is not):")
     for fname in tables:

@@ -1,0 +1,30 @@
+102 usable radiomics features; near-duplicates dropped: Pearson 48, Spearman 53
+mRMR 16: 8 features shared
+
+ rank                                Pearson                               Spearman
+    1        shape2D_MajorAxisLengthRelative        shape2D_MajorAxisLengthRelative
+    2    glszm_SmallAreaLowGrayLevelEmphasis                     shape2D_Elongation
+    3                     shape2D_Elongation                  firstorder_Uniformity
+    4           shape2D_PixelSurfaceRelative        shape2D_MinorAxisLengthRelative
+    5                       firstorder_Range                     firstorder_Maximum
+    6  shape2D_PerimeterSurfaceRatioRelative                              glcm_Imc1
+    7                gldm_DependenceVariance                       firstorder_Range
+    8       firstorder_MeanAbsoluteDeviation gldm_DependenceNonUniformityNormalized
+    9                               glcm_Idm                    firstorder_Variance
+   10                     shape2D_Sphericity                     shape2D_Sphericity
+   11 gldm_DependenceNonUniformityNormalized            glszm_SizeZoneNonUniformity
+   12           gldm_DependenceNonUniformity                glcm_MaximumProbability
+   13                glcm_MaximumProbability                      glszm_ZoneEntropy
+   14            glszm_SizeZoneNonUniformity                               glcm_Idn
+   15                      glszm_ZoneEntropy firstorder_RobustMeanAbsoluteDeviation
+   16  glszm_SizeZoneNonUniformityNormalized                glszm_SmallAreaEmphasis 
+
+XGBoost, 16 radiomics + 6 TI-RADS features (AUC)
+ selection  validation  calibration  test
+  pearson       0.827        0.848 0.835
+ spearman       0.828        0.840 0.831 
+
+calibration: Spearman - Pearson AUC -0.009, 95% interval [-0.019, +0.002]
+test: Spearman - Pearson AUC -0.003, 95% interval [-0.014, +0.008]
+
+Decision: no LLM run (rule fixed in advance)
