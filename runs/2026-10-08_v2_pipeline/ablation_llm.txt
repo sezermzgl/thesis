@@ -1,0 +1,24 @@
+AUC per cell, mean ± SD over seeds 42, 1, 2
+
+                        validation    calibration           test
+cell                                                            
+official v1          0.693 ± 0.013  0.696 ± 0.009  0.657 ± 0.003
+pooled v1            0.710 ± 0.003  0.712 ± 0.006  0.699 ± 0.011
+pooled v2            0.727 ± 0.022  0.721 ± 0.029  0.726 ± 0.024
+pooled v2 + TI-RADS  0.785 ± 0.012  0.794 ± 0.017  0.785 ± 0.018 
+
+One change at a time on the pooled split (same test nodules)
+  within seed: test AUC difference per seed; bootstrap: seed-averaged probabilities, paired, 95%
+  v1 -> v2: per seed +0.055, +0.003, +0.025 (mean +0.028); seed-averaged +0.031 [-0.000, +0.063]
+  TI-RADS added to v2: per seed +0.050, +0.056, +0.070 (mean +0.059); seed-averaged +0.055 [+0.017, +0.090]
+  both: per seed +0.104, +0.059, +0.095 (mean +0.086); seed-averaged +0.086 [+0.043, +0.129]
+
+Split change (v1 features): the test sets differ, so compare the validation -> test gap
+  official v1: validation 0.693, test 0.657, gap -0.036 (per seed -0.042, -0.023, -0.042)
+  pooled v1: validation 0.710, test 0.699, gap -0.012 (per seed -0.009, -0.005, -0.021)
+
+Seed-averaged probabilities, test AUC
+  official v1: 0.661
+  pooled v1: 0.707
+  pooled v2: 0.738
+  pooled v2 + TI-RADS: 0.793
